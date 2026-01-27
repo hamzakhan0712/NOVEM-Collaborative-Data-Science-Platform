@@ -1,0 +1,44 @@
+{
+  "name": "novem-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:debug": "tauri build --debug",
+    "prebuild": "npm run generate-icons && npm run check-backend",
+    "generate-icons": "node scripts/generate-icons.js",
+    "check-backend": "node scripts/check-backend.js",
+    "package": "npm run build && npm run tauri:build",
+    "package:debug": "npm run build && npm run tauri:build:debug",
+    "clean": "rimraf dist src-tauri/target",
+    "release": "npm run clean && npm run package"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-opener": "^2",
+    "antd": "^6.2.1",
+    "axios": "^1.13.3",
+    "dayjs": "^1.11.19",
+    "framer-motion": "^12.29.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.13.0",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}

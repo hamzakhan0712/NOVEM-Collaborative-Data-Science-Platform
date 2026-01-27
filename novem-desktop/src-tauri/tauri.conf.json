@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "productName": "NOVEM",
+  "version": "0.1.0",
+  "identifier": "com.novem.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "NOVEM Team",
+    "copyright": "Copyright © 2026 NOVEM. All rights reserved.",
+    "category": "DeveloperTool",
+    "shortDescription": "Privacy-first data science platform",
+    "longDescription": "NOVEM is a local-first data science platform that keeps your data private while enabling powerful analytics and collaboration.",
+    "homepage": "https://novem.io",
+    "licenseFile": "../LICENSE.md",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "compression": "lzma",
+        "template": null
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.13",
+      "entitlements": null,
+      "exceptionDomain": ""
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "resources": [],
+    "externalBin": [],
+    "fileAssociations": [
+      {
+        "ext": ["novem"],
+        "name": "NOVEM Project",
+        "description": "NOVEM Project File",
+        "mimeType": "application/x-novem-project",
+        "role": "Editor"
+      }
+    ]
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "NOVEM",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "devtools": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.novem.io; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBQUFBQUFBQUFBQUFBQUE=",
+      "endpoints": [
+        "https://updates.novem.io/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
