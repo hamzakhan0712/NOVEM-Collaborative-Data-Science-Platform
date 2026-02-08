@@ -6,7 +6,7 @@ from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-this-in-production')
+SECRET_KEY = "django-6y#o!2%v7q3$k@8f9c^=x0b*5m+_n)1l4e(wr!%u@&a"
 
 DEBUG = True
 
@@ -132,7 +132,7 @@ SIMPLE_JWT = {
     
     # Algorithm and keys
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
+    'SIGNING_KEY': "zejqq81)%c95^5w7&(9vn#2647%a$n#e+7vim%uz!ilxzmoinj",
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
@@ -236,8 +236,8 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-BACKEND_URL = config('BACKEND_URL')
-FRONTEND_URL = config('FRONTEND_URL')
+BACKEND_URL = "http://127.0.0.1:8000"
+FRONTEND_URL = "http://localhost:1420"
 
 # Logging Configuration
 LOGGING = {
