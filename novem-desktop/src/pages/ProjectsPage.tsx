@@ -14,6 +14,7 @@ import {
   Spin,
   Divider,
   Badge,
+  Alert,
 } from 'antd';
 import {
   PlusOutlined,
@@ -29,6 +30,7 @@ import {
   LockOutlined,
   EyeOutlined,
   ClockCircleOutlined,
+  WifiOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
@@ -50,30 +52,33 @@ const ProjectsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<string>('all');
 
-
   const isDark = theme === 'dark';
 
   useEffect(() => {
+    console.log('📊 [ProjectsPage] Loading projects...', { offlineMode });
     loadProjects();
-  }, []);
+  }, [offlineMode]);
 
   // Ensure projects is always an array before filtering
   const projectsArray = Array.isArray(projects) ? projects : [];
   
-  // UPDATED: Filter to show only projects where user is owner or member
+  console.log('📊 [ProjectsPage] Projects state:', {
+    total: projectsArray.length,
+    offlineMode,
+    loading
+  });
+  
+  // Filter to show only projects where user is owner or member
   const myProjects = projectsArray.filter(project => {
-    // Check if user is the creator/owner
     const isOwner = project.creator?.id === user?.id;
-    
-    // Check if user has a role (is a member)
     const isMember = project.current_user_role !== null && project.current_user_role !== undefined;
-    
-    // Show project if user is owner OR member
     return isOwner || isMember;
   });
 
-  console.log('📊 [ProjectsPage] Total projects:', projectsArray.length);
-  console.log('📊 [ProjectsPage] My projects (owner/member):', myProjects.length);
+  console.log('📊 [ProjectsPage] Filtered projects:', {
+    myProjects: myProjects.length,
+    userId: user?.id
+  });
   
   // Apply search and visibility filters to myProjects
   const filteredProjects = myProjects.filter(project => {
@@ -101,7 +106,7 @@ const ProjectsPage: React.FC = () => {
         icon: <SettingOutlined />,
         label: 'Project Settings',
         onClick: () => navigate(`/projects/${project.id}/settings`),
-        disabled: !isCreator && project.current_user_role !== 'lead',
+        disabled: (!isCreator && project.current_user_role !== 'lead') || offlineMode,
       },
       ...(isCreator ? [
         {
@@ -112,6 +117,7 @@ const ProjectsPage: React.FC = () => {
           icon: <DeleteOutlined />,
           label: 'Delete Project',
           danger: true,
+          disabled: offlineMode,
         },
       ] : []),
     ];
@@ -154,6 +160,19 @@ const ProjectsPage: React.FC = () => {
   return (
     <MainLayout>
       <div style={{ padding: '24px 32px', maxWidth: '1600px', margin: '0 auto' }}>
+        {/* Offline Banner */}
+        {offlineMode && (
+          <Alert
+            message="Offline Mode"
+            description="You're viewing cached projects. Some features are limited while offline."
+            type="warning"
+            icon={<WifiOutlined />}
+            showIcon
+            closable
+            style={{ marginBottom: '24px', borderRadius: '8px' }}
+          />
+        )}
+
         {/* Header */}
         <div
           style={{
@@ -183,7 +202,10 @@ const ProjectsPage: React.FC = () => {
                 color: isDark ? colors.textSecondaryDark : colors.textSecondary,
               }}
             >
-              Projects you own or are a member of
+              {offlineMode 
+                ? `Viewing ${myProjects.length} cached projects (offline)`
+                : `Projects you own or are a member of`
+              }
             </Text>
           </div>
           <Button
@@ -199,13 +221,13 @@ const ProjectsPage: React.FC = () => {
               fontWeight: 500,
             }}
           >
-            New Project
+            {offlineMode ? 'Offline' : 'New Project'}
           </Button>
         </div>
 
         {/* Filters */}
         <Card
-          bordered={false}
+          variant="borderless"
           style={{
             marginBottom: '16px',
             backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
@@ -247,7 +269,7 @@ const ProjectsPage: React.FC = () => {
         </Card>
 
         {/* Projects Grid */}
-        {loading ? (
+        {loading && !offlineMode ? (
           <div
             style={{
               display: 'flex',
@@ -257,7 +279,7 @@ const ProjectsPage: React.FC = () => {
               padding: '60px 24px',
             }}
           >
-            <Space direction="vertical" align="center" size={16}>
+            <Space orientation="vertical" align="center" size={16}>
               <Spin
                 indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />}
                 size="large"
@@ -306,7 +328,12 @@ const ProjectsPage: React.FC = () => {
                   fontSize: '18px',
                 }}
               >
-                {searchTerm ? `No projects found matching "${searchTerm}"` : 'No projects yet'}
+                {searchTerm 
+                  ? `No projects found matching "${searchTerm}"` 
+                  : offlineMode
+                    ? 'No cached projects available'
+                    : 'No projects yet'
+                }
               </Title>
               <Text
                 style={{
@@ -319,17 +346,18 @@ const ProjectsPage: React.FC = () => {
               >
                 {searchTerm
                   ? 'Try adjusting your search or filters'
-                  : 'Create your first project to start analyzing data and collaborating with your team'
+                  : offlineMode
+                    ? 'Projects will appear here once you sync while online'
+                    : 'Create your first project to start analyzing data and collaborating with your team'
                 }
               </Text>
 
-              {!searchTerm && (
+              {!searchTerm && !offlineMode && (
                 <Button
                   type="primary"
                   size="large"
                   icon={<PlusOutlined />}
                   onClick={() => setCreateModalVisible(true)}
-                  disabled={offlineMode}
                   style={{
                     height: '40px',
                     padding: '0 24px',
@@ -349,7 +377,7 @@ const ProjectsPage: React.FC = () => {
               return (
                 <Col xs={24} sm={12} lg={8} key={project.id}>
                   <Card
-                    bordered={false}
+                    variant="borderless"
                     hoverable
                     style={{
                       backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
@@ -434,7 +462,7 @@ const ProjectsPage: React.FC = () => {
                                 >
                                   {project.workspace_name}
                                 </Text>
-                                <Divider type="vertical" style={{ margin: 0, height: '12px' }} />
+                                <Divider orientation="vertical" style={{ margin: 0, height: '12px' }} />
                               </>
                             )}
                             {project.current_user_role && (
@@ -460,7 +488,7 @@ const ProjectsPage: React.FC = () => {
 
                     {/* Card Body */}
                     <div style={{ padding: '16px 20px' }}>
-                      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                         {/* Description */}
                         <Paragraph
                           ellipsis={{ rows: 2 }}
@@ -605,8 +633,6 @@ const ProjectsPage: React.FC = () => {
             loadProjects();
           }}
         />
-
-        {/* Request Join Modal - REMOVED as not needed anymore */}
       </div>
     </MainLayout>
   );

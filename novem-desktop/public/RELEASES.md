@@ -8,15 +8,15 @@ This is the first public release of NOVEM, a privacy-first data science platform
 
 #### Features
 
-- ✅ **Local-First Architecture**: All data and computation stay on your machine
-- ✅ **User Authentication**: Secure login with JWT tokens
-- ✅ **Offline Mode**: Work seamlessly even without internet connection (7-day grace period)
-- ✅ **Project Management**: Create and organize data science projects
-- ✅ **Data Import**: Import CSV and Excel files for analysis
-- ✅ **Exploratory Data Analysis**: Automated EDA with statistics and visualizations
-- ✅ **Machine Learning**: Train classification and regression models
-- ✅ **Dark/Light Themes**: Professional UI with customizable themes
-- ✅ **Workspace Collaboration**: Team-based project organization
+-  **Local-First Architecture**: All data and computation stay on your machine
+-  **User Authentication**: Secure login with JWT tokens
+-  **Offline Mode**: Work seamlessly even without internet connection (7-day grace period)
+-  **Project Management**: Create and organize data science projects
+-  **Data Import**: Import CSV and Excel files for analysis
+-  **Exploratory Data Analysis**: Automated EDA with statistics and visualizations
+-  **Machine Learning**: Train classification and regression models
+-  **Dark/Light Themes**: Professional UI with customizable themes
+-  **Workspace Collaboration**: Team-based project organization
 
 #### Requirements
 

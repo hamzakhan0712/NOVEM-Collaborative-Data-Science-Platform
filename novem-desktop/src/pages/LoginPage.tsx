@@ -110,7 +110,7 @@ const LoginPage: React.FC = () => {
             Enterprise-grade analytics with complete data sovereignty. Process locally, collaborate globally.
           </Text>
 
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <div
                 style={{

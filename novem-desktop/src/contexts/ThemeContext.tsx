@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ConfigProvider } from 'antd';
 import { lightTheme, darkTheme } from '../theme/config';
+import { storageManager } from '../services/offline';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -15,16 +16,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setTheme] = useState<ThemeMode>('dark');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as ThemeMode;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
+    // Load theme from storage
+    storageManager.getPreference('theme', 'dark').then((savedTheme) => {
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        setTheme(savedTheme);
+      }
+    });
   }, []);
 
-  const toggleTheme = () => {
+  const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+    await storageManager.setPreference('theme', newTheme);
   };
 
   return (

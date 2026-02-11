@@ -215,11 +215,11 @@ const BrowsePage: React.FC = () => {
         key={project.id}
         hoverable
         style={{ marginBottom: '12px' }}
-        bodyStyle={{ padding: '20px' }}
+        styles={{ body: { padding: '20px' } }}
       >
         <Row gutter={16} align="middle">
           <Col flex="auto">
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="small" style={{ width: '100%' }}>
               <Space align="center" wrap>
                 <FolderOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
                 <Title level={4} style={{ margin: 0 }}>
@@ -304,11 +304,11 @@ const BrowsePage: React.FC = () => {
         key={workspace.id}
         hoverable
         style={{ marginBottom: '12px' }}
-        bodyStyle={{ padding: '20px' }}
+        styles={{ body: { padding: '20px' } }}
       >
         <Row gutter={16} align="middle">
           <Col flex="auto">
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="small" style={{ width: '100%' }}>
               <Space align="center" wrap>
                 {workspace.avatar ? (
                   <Avatar size={40} src={workspace.avatar} />

@@ -54,10 +54,10 @@ const WorkspaceJoinRequestsBadge: React.FC<WorkspaceJoinRequestsBadgeProps> = ({
     try {
       console.log('📋 [WorkspaceJoinRequestsBadge] Loading requests for workspace:', workspaceId);
       const data = await backendAPI.getWorkspaceJoinRequests(workspaceId);
-      console.log('✅ [WorkspaceJoinRequestsBadge] Loaded', data.length, 'requests');
+      console.log(' [WorkspaceJoinRequestsBadge] Loaded', data.length, 'requests');
       setRequests(data || []);
     } catch (error: any) {
-      console.error('❌ [WorkspaceJoinRequestsBadge] Failed to load join requests:', error);
+      console.error(' [WorkspaceJoinRequestsBadge] Failed to load join requests:', error);
       if (!error.offline) {
         message.error('Failed to load join requests');
       }
@@ -71,13 +71,13 @@ const WorkspaceJoinRequestsBadge: React.FC<WorkspaceJoinRequestsBadgeProps> = ({
     if (!workspaceId) return;
 
     try {
-      console.log('✅ [WorkspaceJoinRequestsBadge] Approving request:', requestId);
+      console.log(' [WorkspaceJoinRequestsBadge] Approving request:', requestId);
       await backendAPI.approveWorkspaceJoinRequest(workspaceId, requestId, 'member');
       message.success(`${requestUser.first_name} ${requestUser.last_name} has been added to the workspace`);
       await loadRequests();
       if (onUpdate) onUpdate();
     } catch (error: any) {
-      console.error('❌ [WorkspaceJoinRequestsBadge] Failed to approve request:', error);
+      console.error(' [WorkspaceJoinRequestsBadge] Failed to approve request:', error);
       message.error(error.response?.data?.error || 'Failed to approve request');
     }
   };
@@ -86,12 +86,12 @@ const WorkspaceJoinRequestsBadge: React.FC<WorkspaceJoinRequestsBadgeProps> = ({
     if (!workspaceId) return;
 
     try {
-      console.log('❌ [WorkspaceJoinRequestsBadge] Rejecting request:', requestId);
+      console.log(' [WorkspaceJoinRequestsBadge] Rejecting request:', requestId);
       await backendAPI.rejectWorkspaceJoinRequest(workspaceId, requestId);
       message.success(`Request from ${requestUser.first_name} ${requestUser.last_name} has been rejected`);
       await loadRequests();
     } catch (error: any) {
-      console.error('❌ [WorkspaceJoinRequestsBadge] Failed to reject request:', error);
+      console.error(' [WorkspaceJoinRequestsBadge] Failed to reject request:', error);
       message.error(error.response?.data?.error || 'Failed to reject request');
     }
   };
@@ -165,7 +165,7 @@ const WorkspaceJoinRequestsBadge: React.FC<WorkspaceJoinRequestsBadgeProps> = ({
                 borderBottom: `1px solid ${isDark ? colors.borderDark : colors.border}`,
               }}
             >
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                   <Avatar
                     size={40}

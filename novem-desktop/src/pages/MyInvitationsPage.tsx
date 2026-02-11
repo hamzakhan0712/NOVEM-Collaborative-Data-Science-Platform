@@ -254,7 +254,7 @@ const MyInvitationsPage: React.FC = () => {
 
         {pendingInvitations.length > 0 && (
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
               marginBottom: '16px',
               backgroundColor: '#e6f7ff',
@@ -271,7 +271,7 @@ const MyInvitationsPage: React.FC = () => {
         )}
 
         <Card
-          bordered={false}
+          variant="borderless"
           style={{
             backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
             border: `1px solid ${isDark ? colors.borderDark : colors.border}`,

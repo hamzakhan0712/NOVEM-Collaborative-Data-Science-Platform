@@ -18,19 +18,21 @@ import {
   EyeInvisibleOutlined,
   GlobalOutlined,
   TeamOutlined,
-  SafetyOutlined,
   DeleteOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { colors } from '../../theme/config';
 import { backendAPI } from '../../services/api';
+import { storageManager } from '../../services/offline';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 const SecuritySection: React.FC = () => {
-  const { theme } = useTheme();
+  const { offlineMode } = useAuth();
+  const { theme: themeMode } = useTheme();
   const [passwordForm] = Form.useForm();
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(false);
@@ -39,22 +41,49 @@ const SecuritySection: React.FC = () => {
     show_active_status: true,
   });
 
-  const isDark = theme === 'dark';
+  const isDark = themeMode === 'dark';
 
   useEffect(() => {
     loadSecuritySettings();
-  }, []);
+  }, [offlineMode]);
 
   const loadSecuritySettings = async () => {
     try {
-      const data = await backendAPI.getSecuritySettings();
-      setSecuritySettings(data);
+      // Always load from cache first
+      console.log('💾 [SecuritySection] Loading from cache...');
+      const cached = localStorage.getItem('security_settings');
+      
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        console.log('✅ [SecuritySection] Found cached security settings');
+        setSecuritySettings(parsed);
+      }
+
+      // If online, fetch fresh data
+      if (!offlineMode) {
+        console.log('🌐 [SecuritySection] Fetching fresh data from API...');
+        try {
+          const data = await backendAPI.getSecuritySettings();
+          console.log('✅ [SecuritySection] Received security settings');
+          setSecuritySettings(data);
+          localStorage.setItem('security_settings', JSON.stringify(data));
+        } catch (apiError: any) {
+          console.warn('⚠️ [SecuritySection] API fetch failed, using cached data:', apiError);
+        }
+      } else {
+        console.log('📴 [SecuritySection] Offline mode - using cached data only');
+      }
     } catch (error) {
-      console.error('Failed to load security settings:', error);
+      console.error('❌ [SecuritySection] Failed to load security settings:', error);
     }
   };
 
   const handlePasswordChange = async (values: any) => {
+    if (offlineMode) {
+      message.warning('Cannot change password while offline');
+      return;
+    }
+
     try {
       setLoadingPassword(true);
       await backendAPI.changePassword(
@@ -78,10 +107,23 @@ const SecuritySection: React.FC = () => {
   };
 
   const handleVisibilityChange = async (value: string) => {
+    if (offlineMode) {
+      // Update locally for offline use
+      const updated = { ...securitySettings, profile_visibility: value };
+      setSecuritySettings(updated);
+      localStorage.setItem('security_settings', JSON.stringify(updated));
+      localStorage.setItem('pending_security_update', JSON.stringify({ profile_visibility: value }));
+      message.info('Setting saved locally (will sync when online)');
+      return;
+    }
+
     try {
       setLoadingSettings(true);
       await backendAPI.updateSecuritySettings({ profile_visibility: value });
-      setSecuritySettings(prev => ({ ...prev, profile_visibility: value }));
+      const updated = { ...securitySettings, profile_visibility: value };
+      setSecuritySettings(updated);
+      localStorage.setItem('security_settings', JSON.stringify(updated));
+      localStorage.removeItem('pending_security_update');
       message.success('Profile visibility updated');
     } catch (error) {
       console.error('Failed to update visibility:', error);
@@ -92,10 +134,23 @@ const SecuritySection: React.FC = () => {
   };
 
   const handleActiveStatusChange = async (checked: boolean) => {
+    if (offlineMode) {
+      // Update locally for offline use
+      const updated = { ...securitySettings, show_active_status: checked };
+      setSecuritySettings(updated);
+      localStorage.setItem('security_settings', JSON.stringify(updated));
+      localStorage.setItem('pending_security_update', JSON.stringify({ show_active_status: checked }));
+      message.info('Setting saved locally (will sync when online)');
+      return;
+    }
+
     try {
       setLoadingSettings(true);
       await backendAPI.updateSecuritySettings({ show_active_status: checked });
-      setSecuritySettings(prev => ({ ...prev, show_active_status: checked }));
+      const updated = { ...securitySettings, show_active_status: checked };
+      setSecuritySettings(updated);
+      localStorage.setItem('security_settings', JSON.stringify(updated));
+      localStorage.removeItem('pending_security_update');
       message.success('Active status setting updated');
     } catch (error) {
       console.error('Failed to update active status:', error);
@@ -115,15 +170,17 @@ const SecuritySection: React.FC = () => {
         try {
           await backendAPI.clearLocalCache();
           
-          // Clear localStorage except auth tokens
-          const access = localStorage.getItem('access_token');
+          // Clear storage manager cache (keeps auth tokens)
+          const access = await storageManager.getAccessToken();
           const refresh = localStorage.getItem('refresh_token');
+          
+          // Clear localStorage
           localStorage.clear();
+          sessionStorage.clear();
+          
+          // Restore auth tokens
           if (access) localStorage.setItem('access_token', access);
           if (refresh) localStorage.setItem('refresh_token', refresh);
-          
-          // Clear sessionStorage
-          sessionStorage.clear();
           
           message.success('Cache cleared successfully');
           
@@ -140,19 +197,20 @@ const SecuritySection: React.FC = () => {
   };
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px' }}>
           Security & Privacy
         </Title>
         <Text type="secondary">
           Manage your password, privacy settings, and security preferences
+          {offlineMode && ' (Limited functionality offline)'}
         </Text>
       </div>
 
       {/* Change Password */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
@@ -162,10 +220,16 @@ const SecuritySection: React.FC = () => {
           form={passwordForm}
           layout="vertical"
           onFinish={handlePasswordChange}
+          disabled={offlineMode}
         >
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
             <Text strong style={{ fontSize: '15px' }}>
               Change Password
+              {offlineMode && (
+                <Text type="secondary" style={{ fontSize: '13px', marginLeft: '8px' }}>
+                  (Unavailable offline)
+                </Text>
+              )}
             </Text>
 
             <Form.Item
@@ -224,8 +288,9 @@ const SecuritySection: React.FC = () => {
                 htmlType="submit"
                 icon={<CheckCircleOutlined />}
                 loading={loadingPassword}
+                disabled={offlineMode}
               >
-                Change Password
+                {offlineMode ? 'Offline' : 'Change Password'}
               </Button>
             </div>
           </Space>
@@ -234,15 +299,20 @@ const SecuritySection: React.FC = () => {
 
       {/* Privacy Settings */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
           <Text strong style={{ fontSize: '15px' }}>
             Privacy Settings
+            {offlineMode && (
+              <Text type="secondary" style={{ fontSize: '13px', marginLeft: '8px' }}>
+                (Changes saved locally)
+              </Text>
+            )}
           </Text>
 
           <div>
@@ -259,6 +329,7 @@ const SecuritySection: React.FC = () => {
               onChange={handleVisibilityChange}
               style={{ width: '100%' }}
               loading={loadingSettings}
+              disabled={loadingSettings}
             >
               <Option value="public">
                 <Space>
@@ -296,6 +367,7 @@ const SecuritySection: React.FC = () => {
               checked={securitySettings.show_active_status}
               onChange={handleActiveStatusChange}
               loading={loadingSettings}
+              disabled={loadingSettings}
             />
           </div>
         </Space>
@@ -303,13 +375,13 @@ const SecuritySection: React.FC = () => {
 
       {/* Data & Cache */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <Text strong style={{ fontSize: '15px' }}>
             Local Data
           </Text>

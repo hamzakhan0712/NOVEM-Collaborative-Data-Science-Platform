@@ -10,7 +10,7 @@ const PreferencesSection: React.FC = () => {
   const isDark = theme === 'dark';
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px' }}>
           Application Preferences
@@ -21,13 +21,13 @@ const PreferencesSection: React.FC = () => {
       </div>
 
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
           <div>
             <Text strong style={{ fontSize: '15px' }}>
               Appearance
@@ -45,7 +45,7 @@ const PreferencesSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Theme</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Choose your preferred color theme
@@ -80,7 +80,7 @@ const PreferencesSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Language</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Select your preferred interface language
@@ -104,7 +104,7 @@ const PreferencesSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Timezone</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Detected from your system settings

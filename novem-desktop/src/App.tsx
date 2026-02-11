@@ -18,6 +18,7 @@ import BrowsePage from './pages/BrowsePage';
 import WorkspacesPage from './pages/WorkspacesPage';
 import WorkspaceDetailPage from './pages/WorkspaceDetailPage';
 import { Spin } from 'antd';
+
 import PasswordResetConfirmPage from './pages/PasswordResetConfirmPage';
 import SettingsPage from './pages/SettingsPage';
 
@@ -31,9 +32,12 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '100vh'
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '16px'
       }}>
-        <Spin size="large" tip="Loading NOVEM..." />
+        <Spin size="large" />
+        <p>Loading NOVEM...</p>
       </div>
     );
   }

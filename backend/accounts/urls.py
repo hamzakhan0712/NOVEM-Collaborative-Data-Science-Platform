@@ -3,7 +3,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 
 urlpatterns = [
-    path('health/', views.health_check, name='health_check'),
+
+    # Metadata sync (keep this - user-specific)
+    path('sync/', views.sync_metadata, name='sync_metadata'),
      
     # Authentication
     path('register/', views.RegisterView.as_view(), name='register'),
@@ -20,7 +22,7 @@ urlpatterns = [
     path('profile/detail/', views.ProfileView.as_view(), name='profile_detail'),
     path('profile/update/', views.UpdateProfileView.as_view(), name='update_profile'),
     
-    # Current user (alternative)
+    # Current user
     path('me/', views.current_user, name='current_user'),
     
     # Password Management

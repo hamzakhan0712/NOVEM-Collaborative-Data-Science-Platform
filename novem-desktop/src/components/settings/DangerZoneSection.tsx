@@ -64,7 +64,7 @@ const DangerZoneSection: React.FC = () => {
   };
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px', color: '#ff4d4f' }}>
           <WarningOutlined style={{ marginRight: '8px' }} />
@@ -76,13 +76,13 @@ const DangerZoneSection: React.FC = () => {
       </div>
 
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `2px solid #ff4d4f`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
               <ExclamationCircleOutlined style={{ fontSize: '20px', color: '#ff4d4f', marginTop: '2px' }} />
@@ -139,7 +139,7 @@ const DangerZoneSection: React.FC = () => {
           layout="vertical"
           onFinish={handleConfirmDelete}
         >
-          <Space direction="vertical" size={20} style={{ width: '100%', marginTop: '20px' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%', marginTop: '20px' }}>
             <div
               style={{
                 padding: '16px',
@@ -149,7 +149,7 @@ const DangerZoneSection: React.FC = () => {
               }}
             >
               <Paragraph strong style={{ marginBottom: '12px', color: '#ff4d4f' }}>
-                ⚠️ This action is permanent and cannot be reversed
+                 This action is permanent and cannot be reversed
               </Paragraph>
               <Paragraph style={{ marginBottom: '8px' }}>
                 By deleting your account, you will:

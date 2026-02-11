@@ -70,10 +70,10 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
       setLoading(true);
       console.log('📋 [WorkspaceMembersTab] Loading invitations for workspace:', workspace.id);
       const data = await backendAPI.getWorkspaceInvitations(workspace.id);
-      console.log('✅ [WorkspaceMembersTab] Loaded', data.length, 'invitations');
+      console.log(' [WorkspaceMembersTab] Loaded', data.length, 'invitations');
       setInvitations(data || []);
     } catch (error: any) {
-      console.error('❌ [WorkspaceMembersTab] Failed to load invitations:', error);
+      console.error(' [WorkspaceMembersTab] Failed to load invitations:', error);
       if (!error.offline) {
         message.error('Failed to load invitations');
       }
@@ -88,10 +88,10 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
       setLoading(true);
       console.log('📋 [WorkspaceMembersTab] Loading join requests for workspace:', workspace.id);
       const data = await backendAPI.getWorkspaceJoinRequests(workspace.id);
-      console.log('✅ [WorkspaceMembersTab] Loaded', data.length, 'join requests');
+      console.log(' [WorkspaceMembersTab] Loaded', data.length, 'join requests');
       setJoinRequests(data || []);
     } catch (error: any) {
-      console.error('❌ [WorkspaceMembersTab] Failed to load join requests:', error);
+      console.error(' [WorkspaceMembersTab] Failed to load join requests:', error);
       if (!error.offline) {
         message.error('Failed to load join requests');
       }
@@ -133,37 +133,37 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
 
    const handleCancelInvitation = async (invitationId: number) => {
     try {
-      console.log('❌ [WorkspaceMembersTab] Cancelling invitation:', invitationId);
+      console.log(' [WorkspaceMembersTab] Cancelling invitation:', invitationId);
       await backendAPI.cancelWorkspaceInvitation(workspace.id, invitationId);
       message.success('Invitation cancelled');
       loadInvitations();
     } catch (error: any) {
-      console.error('❌ [WorkspaceMembersTab] Failed to cancel invitation:', error);
+      console.error(' [WorkspaceMembersTab] Failed to cancel invitation:', error);
       message.error('Failed to cancel invitation');
     }
   };
 
  const handleApproveRequest = async (requestId: number) => {
     try {
-      console.log('✅ [WorkspaceMembersTab] Approving request:', requestId);
+      console.log(' [WorkspaceMembersTab] Approving request:', requestId);
       await backendAPI.approveWorkspaceJoinRequest(workspace.id, requestId, 'member');
       message.success('Request approved - member added to workspace');
       loadJoinRequests();
       onUpdate();
     } catch (error: any) {
-      console.error('❌ [WorkspaceMembersTab] Failed to approve request:', error);
+      console.error(' [WorkspaceMembersTab] Failed to approve request:', error);
       message.error(error.response?.data?.error || 'Failed to approve request');
     }
   };
 
   const handleRejectRequest = async (requestId: number) => {
     try {
-      console.log('❌ [WorkspaceMembersTab] Rejecting request:', requestId);
+      console.log(' [WorkspaceMembersTab] Rejecting request:', requestId);
       await backendAPI.rejectWorkspaceJoinRequest(workspace.id, requestId);
       message.success('Request rejected');
       loadJoinRequests();
     } catch (error: any) {
-      console.error('❌ [WorkspaceMembersTab] Failed to reject request:', error);
+      console.error(' [WorkspaceMembersTab] Failed to reject request:', error);
       message.error(error.response?.data?.error || 'Failed to reject request');
     }
   };
@@ -368,7 +368,7 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
   const invitationColumns = [
     {
       title: 'Email',
-      dataIndex: 'invitee_email',  // ✅ Changed from 'email'
+      dataIndex: 'invitee_email',  //  Changed from 'email'
       key: 'invitee_email',
       render: (email: string) => (
         <Space>
@@ -387,10 +387,10 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
     },
     {
       title: 'Invited By',
-      dataIndex: 'inviter',  // ✅ Changed from 'invited_by'
+      dataIndex: 'inviter',  //  Changed from 'invited_by'
       key: 'inviter',
       render: (user: any) => {
-        // ✅ Add null check
+        //  Add null check
         if (!user) return <Text type="secondary">Unknown</Text>;
         return (
           <Space size={8}>
@@ -404,7 +404,7 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
     },
     {
       title: 'Sent',
-      dataIndex: 'invited_at',  // ✅ Changed from 'created_at'
+      dataIndex: 'invited_at',  //  Changed from 'created_at'
       key: 'invited_at',
       render: (date: string) => (
         <Space size={4}>
@@ -444,7 +444,7 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
       align: 'right' as const,
       width: 100,
       render: (_: any, record: any) => {
-        // ✅ Only show cancel for pending invitations
+        //  Only show cancel for pending invitations
         if (record.status !== 'pending') return null;
         
         return (
@@ -666,7 +666,7 @@ const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
         )}
       </div>
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,

@@ -72,7 +72,7 @@ const RequestJoinModal: React.FC<RequestJoinModalProps> = ({
       ]}
       width={600}
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <div>
           <Paragraph>
             You are requesting to join <Text strong>"{projectName}"</Text>

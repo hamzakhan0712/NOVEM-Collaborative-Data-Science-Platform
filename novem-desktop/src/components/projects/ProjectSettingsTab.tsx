@@ -137,7 +137,7 @@ const ProjectSettingsTab: React.FC<ProjectSettingsTabProps> = ({ project }) => {
           </Form.Item>
 
           <Form.Item label="Tags">
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Space.Compact style={{ width: '100%' }}>
                 <Input
                   placeholder="Add a tag..."
@@ -180,7 +180,7 @@ const ProjectSettingsTab: React.FC<ProjectSettingsTabProps> = ({ project }) => {
         title="Danger Zone"
         style={{ marginTop: '16px', borderColor: '#ff4d4f' }}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <div>
             <Title level={5}>Delete Project</Title>
             <Paragraph type="secondary">

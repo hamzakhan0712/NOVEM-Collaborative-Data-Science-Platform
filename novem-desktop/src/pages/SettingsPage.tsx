@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Typography, Spin, message } from 'antd';
+import { Layout, Menu, Typography, Spin, message, Alert } from 'antd';
 import {
   UserOutlined,
   BellOutlined,
   SafetyOutlined,
   WarningOutlined,
   ToolOutlined,
+  WifiOutlined,
 } from '@ant-design/icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { backendAPI } from '../services/api';
 import MainLayout from '../components/layout/MainLayout';
 import { colors } from '../theme/config';
@@ -26,6 +28,7 @@ type SettingsSection = 'profile' | 'account' | 'security' | 'notifications' | 'd
 
 const SettingsPage: React.FC = () => {
   const { theme } = useTheme();
+  const { user, offlineMode } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
@@ -35,15 +38,72 @@ const SettingsPage: React.FC = () => {
   // Load profile data
   useEffect(() => {
     loadProfileData();
-  }, []);
+  }, [offlineMode]);
 
   const loadProfileData = async () => {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      const data = await backendAPI.getProfile();
-      setProfileData(data.profile);
-    } catch (error) {
-      console.error('Failed to load profile:', error);
+      // Always load from cache first for instant display
+      console.log('💾 [SettingsPage] Loading from cache...');
+      const cachedProfile = localStorage.getItem('profile_cache');
+      
+      if (cachedProfile) {
+        const parsed = JSON.parse(cachedProfile);
+        console.log('✅ [SettingsPage] Found cached profile');
+        setProfileData(parsed);
+      } else if (user) {
+        // Use user data from AuthContext as fallback
+        console.log('✅ [SettingsPage] Using user data from context');
+        setProfileData({
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            profile_picture: user.profile_picture,
+            profile_picture_url: user.profile_picture_url,
+            is_onboarding_complete: user.is_onboarding_complete,
+            account_state: user.account_state,
+            created_at: user.created_at,
+          },
+          preferences: {
+            theme: theme,
+            notifications_enabled: true,
+            email_notifications: true,
+          },
+        });
+      }
+
+      // If online, fetch fresh data in background
+      if (!offlineMode) {
+        console.log('🌐 [SettingsPage] Fetching fresh data from API...');
+        try {
+          const data = await backendAPI.getProfile();
+          console.log('✅ [SettingsPage] Received profile data');
+          
+          setProfileData(data.profile);
+          
+          // Cache the fresh data
+          localStorage.setItem('profile_cache', JSON.stringify(data.profile));
+          console.log('✅ [SettingsPage] Cached profile data');
+        } catch (apiError: any) {
+          console.warn('⚠️ [SettingsPage] API fetch failed, using cached data:', apiError);
+          
+          // If we don't have cached data, show error
+          if (!cachedProfile && !apiError.offline) {
+            message.error('Failed to load profile data');
+          }
+        }
+      } else {
+        console.log('📴 [SettingsPage] Offline mode - using cached data only');
+        if (!cachedProfile && !user) {
+          message.info('No cached profile data available offline');
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ [SettingsPage] Load failed:', error);
       message.error('Failed to load profile data');
     } finally {
       setLoading(false);
@@ -105,7 +165,7 @@ const SettingsPage: React.FC = () => {
           minHeight: '60vh',
           backgroundColor: isDark ? colors.backgroundSecondaryDark : colors.backgroundSecondary,
         }}>
-          <Spin size="large" />
+          <Spin size="large" tip="Loading settings..." />
         </div>
       </MainLayout>
     );
@@ -128,6 +188,22 @@ const SettingsPage: React.FC = () => {
           }}
         >
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            {/* Offline Mode Banner */}
+            {offlineMode && (
+              <Alert
+                message="Offline Mode"
+                description="You are viewing cached settings. Some features are limited while offline. Changes will be synced when you reconnect."
+                type="warning"
+                icon={<WifiOutlined />}
+                showIcon
+                closable
+                style={{ 
+                  marginBottom: '24px',
+                  borderRadius: '8px',
+                }}
+              />
+            )}
+
             {renderSection()}
           </div>
         </Content>
@@ -154,6 +230,52 @@ const SettingsPage: React.FC = () => {
             >
               Settings
             </Text>
+
+            {/* Offline Indicator in Sidebar */}
+            {offlineMode && (
+              <div 
+                style={{
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  backgroundColor: isDark 
+                    ? 'rgba(250, 173, 20, 0.1)' 
+                    : 'rgba(250, 173, 20, 0.08)',
+                  borderRadius: '6px',
+                  border: `1px solid ${isDark 
+                    ? 'rgba(250, 173, 20, 0.3)' 
+                    : 'rgba(250, 173, 20, 0.2)'}`,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <WifiOutlined 
+                    style={{ 
+                      fontSize: '12px', 
+                      color: colors.warning,
+                    }} 
+                  />
+                  <Text 
+                    style={{ 
+                      fontSize: '11px', 
+                      color: colors.warning,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Offline Mode
+                  </Text>
+                </div>
+                <Text 
+                  type="secondary" 
+                  style={{ 
+                    fontSize: '10px',
+                    display: 'block',
+                    marginTop: '4px',
+                    color: isDark ? colors.textTertiaryDark : colors.textTertiary,
+                  }}
+                >
+                  Limited functionality
+                </Text>
+              </div>
+            )}
           </div>
 
           <Menu

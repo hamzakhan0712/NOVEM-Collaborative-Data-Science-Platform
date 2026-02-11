@@ -13,12 +13,11 @@ import {
   Col,
   message,
   Popconfirm,
+  Alert,
 } from 'antd';
 import {
   DownloadOutlined,
   LogoutOutlined,
-  DeleteOutlined,
-  ClockCircleOutlined,
   ProjectOutlined,
   TeamOutlined,
   ThunderboltOutlined,
@@ -52,7 +51,7 @@ interface AccountStats {
 
 interface Session {
   id: number;
-  device_info: string;
+  device_name: string;
   ip_address: string;
   location: string;
   created_at: string;
@@ -60,8 +59,8 @@ interface Session {
   is_active: boolean;
 }
 
-const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
-  const { user } = useAuth();
+const AccountSection: React.FC<AccountSectionProps> = ({ }) => {
+  const { user, offlineMode } = useAuth();
   const { theme } = useTheme();
   const [stats, setStats] = useState<AccountStats | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -72,18 +71,59 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
   const isDark = theme === 'dark';
 
   useEffect(() => {
-    loadAccountStats();
-    loadActiveSessions();
-  }, []);
+    if (offlineMode) {
+      // Load from cache or use mock data
+      loadCachedAccountData();
+    } else {
+      loadAccountStats();
+      loadActiveSessions();
+    }
+  }, [offlineMode]);
+
+  const loadCachedAccountData = () => {
+    console.log('📴 [AccountSection] Loading cached data');
+    
+    // Try to load cached stats
+    const cachedStats = localStorage.getItem('account_stats');
+    if (cachedStats) {
+      setStats(JSON.parse(cachedStats));
+    } else {
+      // Use mock data based on user
+      setStats({
+        projects_count: 0,
+        workspaces_count: 0,
+        recent_activity_count: 0,
+        account_age_days: 0,
+        member_since: user?.created_at || new Date().toISOString(),
+        last_login: new Date().toISOString(),
+      });
+    }
+    
+    // Load cached sessions
+    const cachedSessions = localStorage.getItem('active_sessions');
+    if (cachedSessions) {
+      setSessions(JSON.parse(cachedSessions));
+    } else {
+      setSessions([]);
+    }
+    
+    setLoadingStats(false);
+    setLoadingSessions(false);
+  };
 
   const loadAccountStats = async () => {
     try {
       setLoadingStats(true);
       const data = await backendAPI.getAccountStats();
       setStats(data);
+      
+      // Cache for offline use
+      localStorage.setItem('account_stats', JSON.stringify(data));
     } catch (error) {
       console.error('Failed to load account stats:', error);
-      message.error('Failed to load account statistics');
+      
+      // Try to load from cache
+      loadCachedAccountData();
     } finally {
       setLoadingStats(false);
     }
@@ -94,20 +134,29 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
       setLoadingSessions(true);
       const data = await backendAPI.getActiveSessions();
       setSessions(data);
+      
+      // Cache for offline use
+      localStorage.setItem('active_sessions', JSON.stringify(data));
     } catch (error) {
       console.error('Failed to load sessions:', error);
-      message.error('Failed to load active sessions');
+      
+      // Try to load from cache
+      loadCachedAccountData();
     } finally {
       setLoadingSessions(false);
     }
   };
 
   const handleExportData = async () => {
+    if (offlineMode) {
+      message.warning('Cannot export data while offline');
+      return;
+    }
+
     try {
       setExportingData(true);
       const blob = await backendAPI.exportAccountData();
       
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -127,6 +176,11 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
   };
 
   const handleTerminateSession = async (sessionId: number) => {
+    if (offlineMode) {
+      message.warning('Cannot terminate sessions while offline');
+      return;
+    }
+
     try {
       await backendAPI.terminateSession(sessionId);
       message.success('Session terminated successfully');
@@ -138,6 +192,11 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
   };
 
   const handleTerminateAllSessions = async () => {
+    if (offlineMode) {
+      message.warning('Cannot terminate sessions while offline');
+      return;
+    }
+
     Modal.confirm({
       title: 'Terminate All Sessions',
       content: 'Are you sure you want to terminate all other sessions? You will remain logged in on this device.',
@@ -160,8 +219,8 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
   const sessionColumns = [
     {
       title: 'Device',
-      dataIndex: 'device_info',
-      key: 'device_info',
+      dataIndex: 'device_name',
+      key: 'device_name',
       render: (text: string) => (
         <Space>
           <DesktopOutlined style={{ color: isDark ? colors.textSecondaryDark : colors.textSecondary }} />
@@ -224,7 +283,7 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
   ];
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px' }}>
           Account Management
@@ -234,15 +293,26 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
         </Text>
       </div>
 
+      {/* Add offline alert */}
+      {offlineMode && (
+        <Alert
+          message="Offline Mode"
+          description="Showing cached account data. Connect to the internet to view real-time statistics and manage sessions."
+          type="warning"
+          showIcon
+          style={{ marginBottom: '8px' }}
+        />
+      )}
+
       {/* Account Overview */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <Text strong style={{ fontSize: '15px' }}>
             Account Overview
           </Text>
@@ -272,14 +342,14 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
 
       {/* Account Statistics */}
       <Card
-        bordered={false}
+        variant="borderless"
         loading={loadingStats}
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <Text strong style={{ fontSize: '15px' }}>
             Usage Statistics
           </Text>
@@ -360,14 +430,14 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
 
       {/* Active Sessions */}
       <Card
-        bordered={false}
+        variant="borderless"
         loading={loadingSessions}
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <Text strong style={{ fontSize: '15px', display: 'block' }}>
@@ -400,13 +470,13 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profileData }) => {
 
       {/* Data Management */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <Text strong style={{ fontSize: '15px' }}>
             Data Management
           </Text>

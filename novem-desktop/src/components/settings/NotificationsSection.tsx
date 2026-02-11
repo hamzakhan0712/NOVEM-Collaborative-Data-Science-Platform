@@ -8,7 +8,6 @@ import {
   List,
   Badge,
   Button,
-  Tag,
   Empty,
   message,
   Spin,
@@ -22,7 +21,6 @@ import {
   MessageOutlined,
   UserAddOutlined,
   ThunderboltOutlined,
-  DeleteOutlined,
 } from '@ant-design/icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { colors } from '../../theme/config';
@@ -154,7 +152,7 @@ const NotificationsSection: React.FC<NotificationsSectionProps> = ({ profileData
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px' }}>
           Notifications
@@ -166,13 +164,13 @@ const NotificationsSection: React.FC<NotificationsSectionProps> = ({ profileData
 
       {/* Email Notification Settings */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <MailOutlined style={{ fontSize: '20px', color: colors.logoCyan }} />
             <Text strong style={{ fontSize: '15px' }}>
@@ -203,7 +201,7 @@ const NotificationsSection: React.FC<NotificationsSectionProps> = ({ profileData
               Project Activity
             </Text>
 
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                   <Text>Project Invitations</Text>
@@ -261,7 +259,7 @@ const NotificationsSection: React.FC<NotificationsSectionProps> = ({ profileData
               Workspace Activity
             </Text>
 
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                   <Text>Workspace Invitations</Text>
@@ -300,13 +298,13 @@ const NotificationsSection: React.FC<NotificationsSectionProps> = ({ profileData
 
       {/* Recent Notifications */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <BellOutlined style={{ fontSize: '20px', color: colors.logoCyan }} />
@@ -373,7 +371,7 @@ const NotificationsSection: React.FC<NotificationsSectionProps> = ({ profileData
                         </Space>
                       }
                       description={
-                        <Space direction="vertical" size={4}>
+                        <Space orientation="vertical" size={4}>
                           <Text type="secondary">{notification.message}</Text>
                           <Text type="secondary" style={{ fontSize: '12px' }}>
                             {dayjs(notification.created_at).fromNow()}

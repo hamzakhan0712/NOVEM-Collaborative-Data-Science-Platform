@@ -1,40 +1,26 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { offlineManager } from './offline';
 
-interface QueueItem {
-  resolve: (value?: any) => void;
-  reject: (error?: any) => void;
-}
 
 class BackendAPIService {
   public client: AxiosInstance;
   private baseURL: string = 'http://localhost:8000/api';
   private isRefreshing: boolean = false;
-  private failedQueue: QueueItem[] = [];
   private tokenRefreshTimer: number | null = null;
+  private static instance: BackendAPIService;
 
-  constructor() {
+  private constructor() {
     this.client = axios.create({
       baseURL: this.baseURL,
-      timeout: 30000,
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    this.setupInterceptors();
-    this.startTokenRefreshTimer();
-  }
-
-  async healthCheck() {
-    const response = await this.client.get('/auth/health/');
-    return response.data;
-  }
-
-  private setupInterceptors() {
     // Request interceptor
     this.client.interceptors.request.use(
-      (config: InternalAxiosRequestConfig) => {
+      async (config: InternalAxiosRequestConfig) => {
         const token = localStorage.getItem('access_token');
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -44,114 +30,33 @@ class BackendAPIService {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor with offline handling
+    // Response interceptor
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Mark as online on successful response
+        offlineManager.markAsOnline();
+        return response;
+      },
       async (error: AxiosError) => {
-        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-
-        // **OFFLINE DETECTION** - Network error (no response from server)
-        if (!error.response) {
-          console.warn('🔌 Network error detected - backend may be offline');
-          
-          // Notify offline manager
+        // Network error - trigger offline mode
+        if (!error.response && error.code === 'ERR_NETWORK') {
           offlineManager.handleNetworkError();
+          throw { ...error, offline: true };
+        }
+
+        // Token expired - attempt refresh
+        if (error.response?.status === 401 && !this.isRefreshing) {
+          const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
           
-          // Check if we're within grace period
-          if (offlineManager.isWithinGracePeriod()) {
-            console.log('⏳ Within grace period - allowing offline operation');
+          if (!originalRequest._retry) {
+            originalRequest._retry = true;
             
-            // Queue this operation for later sync (if it's a mutation)
-            if (originalRequest.method && ['post', 'put', 'patch', 'delete'].includes(originalRequest.method.toLowerCase())) {
-              offlineManager.queueOperation({
-                type: 'api_call',
-                endpoint: originalRequest.url || '',
-                method: originalRequest.method,
-                data: originalRequest.data,
-                timestamp: new Date(),
-              });
-              
-              console.log('📋 Operation queued for sync when online');
+            try {
+              await this.performTokenRefresh();
+              return this.client(originalRequest);
+            } catch (refreshError) {
+              return Promise.reject(refreshError);
             }
-            
-            // Return a graceful error for the UI to handle
-            return Promise.reject({
-              offline: true,
-              gracePeriod: true,
-              message: 'Operating in offline mode. Changes will sync when online.',
-              originalError: error,
-            });
-          } else {
-            // Grace period expired
-            console.error('❌ Offline grace period expired');
-            return Promise.reject({
-              offline: true,
-              gracePeriod: false,
-              expired: true,
-              message: 'Your offline access has expired. Please reconnect to continue.',
-              originalError: error,
-            });
-          }
-        }
-
-        // **401 UNAUTHORIZED** - Token refresh logic
-        if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-          // Don't retry if we're offline
-          if (!navigator.onLine) {
-            console.warn('📴 Offline - cannot refresh token');
-            return Promise.reject({
-              offline: true,
-              message: 'Cannot refresh authentication while offline',
-              originalError: error,
-            });
-          }
-
-          if (this.isRefreshing) {
-            // Queue this request while refresh is in progress
-            return new Promise((resolve, reject) => {
-              this.failedQueue.push({ resolve, reject });
-            })
-              .then((token) => {
-                if (originalRequest.headers) {
-                  originalRequest.headers.Authorization = `Bearer ${token}`;
-                }
-                return this.client(originalRequest);
-              })
-              .catch((err) => Promise.reject(err));
-          }
-
-          originalRequest._retry = true;
-          this.isRefreshing = true;
-
-          try {
-            const newToken = await this.performTokenRefresh();
-            this.processQueue(null, newToken);
-            
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            }
-            return this.client(originalRequest);
-          } catch (refreshError) {
-            this.processQueue(refreshError, null);
-            this.handleAuthFailure();
-            return Promise.reject(refreshError);
-          } finally {
-            this.isRefreshing = false;
-          }
-        }
-
-        // **403 FORBIDDEN** - Permissions error
-        if (error.response?.status === 403) {
-          console.error('🚫 Access forbidden:', error.response.data);
-        }
-
-        // **500 SERVER ERROR** - Backend issue
-        if (error.response?.status >= 500) {
-          console.error('🔥 Server error:', error.response.status);
-          
-          // If server is down, treat similar to offline
-          if (error.response.status === 503 || error.response.status === 502) {
-            offlineManager.handleNetworkError();
           }
         }
 
@@ -160,15 +65,32 @@ class BackendAPIService {
     );
   }
 
-  private processQueue(error: any, token: string | null = null) {
-    this.failedQueue.forEach((prom) => {
-      if (error) {
-        prom.reject(error);
-      } else {
-        prom.resolve(token);
-      }
-    });
-    this.failedQueue = [];
+  /**
+   * Check backend connectivity (lightweight)
+   * Uses HEAD request for minimal overhead
+   */
+  public async checkHealth(): Promise<boolean> {
+    try {
+      const response = await this.client.head('/health/', {
+        timeout: 2000, // 2 second timeout
+      });
+      return response.status === 200;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get detailed health status
+   * Uses GET request for full information
+   */
+  public async getHealthDetails(): Promise<any> {
+    try {
+      const response = await this.client.get('/health/');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 
   public async performTokenRefresh(): Promise<string> {
@@ -197,14 +119,14 @@ class BackendAPIService {
         localStorage.setItem('refresh_token', refresh);
       }
 
-      console.log('✅ Token refreshed successfully');
+      console.log(' Token refreshed successfully');
       
       // Update offline manager that we're back online
       offlineManager.markAsOnline();
       
       return access;
     } catch (error: any) {
-      console.error('❌ Token refresh failed:', error);
+      console.error(' Token refresh failed:', error);
       
       // If network error, handle offline mode
       if (!error.response) {
@@ -213,54 +135,6 @@ class BackendAPIService {
       
       throw error;
     }
-  }
-
-  private handleAuthFailure() {
-    console.log('🔒 Authentication failed - clearing session');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_cache');
-    
-    // Clear offline state on auth failure
-    offlineManager.clearState();
-    
-    // Dispatch custom event for React to handle
-    window.dispatchEvent(new CustomEvent('auth:logout'));
-  }
-
-  // Proactive token refresh - refresh 5 minutes before expiry
-  private startTokenRefreshTimer() {
-    // Clear existing timer
-    if (this.tokenRefreshTimer) {
-      clearInterval(this.tokenRefreshTimer);
-    }
-
-    // Check every minute if token needs refresh
-    this.tokenRefreshTimer = setInterval(async () => {
-      // Don't refresh if offline
-      if (!navigator.onLine) {
-        console.log('📴 Skipping token refresh - offline');
-        return;
-      }
-
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
-
-      try {
-        const payload = this.decodeToken(token);
-        const expiresAt = payload.exp * 1000; // Convert to milliseconds
-        const now = Date.now();
-        const fiveMinutes = 5 * 60 * 1000;
-
-        // Refresh if token expires in less than 5 minutes
-        if (expiresAt - now < fiveMinutes) {
-          console.log('⏰ Proactively refreshing token...');
-          await this.performTokenRefresh();
-        }
-      } catch (error) {
-        console.error('❌ Token refresh timer error:', error);
-      }
-    }, 60000); // Check every minute
   }
 
   private decodeToken(token: string): any {
@@ -504,9 +378,9 @@ async deleteProfilePhoto() {
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ API: completeOnboarding failed');
-      console.error('❌ API: Error response:', error.response?.data);
-      console.error('❌ API: Error status:', error.response?.status);
+      console.error(' API: completeOnboarding failed');
+      console.error(' API: Error response:', error.response?.data);
+      console.error(' API: Error status:', error.response?.status);
       throw error;
     }
   }
@@ -528,27 +402,27 @@ async deleteProfilePhoto() {
     }
 
     async getMyWorkspaceInvitations() {
-      const response = await this.client.get('/workspaces/workspaces/my-invitations/');  // ✅ Changed from my_invitations
+      const response = await this.client.get('/workspaces/workspaces/my-invitations/');  //  Changed from my_invitations
       return response.data;
     }
 
     async acceptWorkspaceInvitation(workspaceId: number, invitationId: number) {
       const response = await this.client.post(
-        `/workspaces/workspaces/${workspaceId}/invitations/${invitationId}/accept/`  // ✅ No underscores
+        `/workspaces/workspaces/${workspaceId}/invitations/${invitationId}/accept/`  //  No underscores
       );
       return response.data;
     }
 
     async declineWorkspaceInvitation(workspaceId: number, invitationId: number) {
       const response = await this.client.post(
-        `/workspaces/workspaces/${workspaceId}/invitations/${invitationId}/decline/`  // ✅ No underscores
+        `/workspaces/workspaces/${workspaceId}/invitations/${invitationId}/decline/`  //  No underscores
       );
       return response.data;
     }
 
     async inviteWorkspaceMember(workspaceId: number, data: { email: string; role: string; message?: string }) {
       const response = await this.client.post(
-        `/workspaces/workspaces/${workspaceId}/invite-member/`,  // ✅ Changed from invite_member
+        `/workspaces/workspaces/${workspaceId}/invite-member/`,  //  Changed from invite_member
         data
       );
       return response.data;
@@ -556,7 +430,7 @@ async deleteProfilePhoto() {
 
     async removeWorkspaceMember(workspaceId: number, userId: number) {
       const response = await this.client.delete(
-        `/workspaces/workspaces/${workspaceId}/remove-member/`,  // ✅ Changed from remove_member
+        `/workspaces/workspaces/${workspaceId}/remove-member/`,  //  Changed from remove_member
         { data: { user_id: userId } }
       );
       return response.data;
@@ -686,7 +560,7 @@ async deleteProfilePhoto() {
   // Workspace Join Requests - FIXED: Use hyphens not underscores
   async requestJoinWorkspace(workspaceId: number, message?: string): Promise<any> {
     const response = await this.client.post(
-      `/workspaces/workspaces/${workspaceId}/request-join/`,  // ✅ Changed from request_join
+      `/workspaces/workspaces/${workspaceId}/request-join/`,  //  Changed from request_join
       { message }
     );
     return response.data;
@@ -694,14 +568,14 @@ async deleteProfilePhoto() {
 
   async getWorkspaceJoinRequests(workspaceId: number): Promise<any[]> {
     const response = await this.client.get(
-      `/workspaces/workspaces/${workspaceId}/join-requests/`  // ✅ Changed from join_requests
+      `/workspaces/workspaces/${workspaceId}/join-requests/`  //  Changed from join_requests
     );
     return response.data;
   }
 
   async approveWorkspaceJoinRequest(workspaceId: number, requestId: number, role: string = 'member'): Promise<any> {
     const response = await this.client.post(
-      `/workspaces/workspaces/${workspaceId}/join-requests/${requestId}/approve/`,  // ✅ Changed from join_requests
+      `/workspaces/workspaces/${workspaceId}/join-requests/${requestId}/approve/`,  //  Changed from join_requests
       { role }
     );
     return response.data;
@@ -709,7 +583,7 @@ async deleteProfilePhoto() {
 
   async rejectWorkspaceJoinRequest(workspaceId: number, requestId: number): Promise<any> {
     const response = await this.client.post(
-      `/workspaces/workspaces/${workspaceId}/join-requests/${requestId}/reject/`  // ✅ Changed from join_requests
+      `/workspaces/workspaces/${workspaceId}/join-requests/${requestId}/reject/`  //  Changed from join_requests
     );
     return response.data;
   }
@@ -754,165 +628,16 @@ async deleteProfilePhoto() {
     }
   }
 
-  // ========================================
-  // DATA SOURCES
-  // ========================================
 
-  async getDataSources(params?: any) {
-    const response = await this.client.get('/datasources/', { params });
-    return response.data;
+  public static getInstance(): BackendAPIService {
+    if (!BackendAPIService.instance) {
+      BackendAPIService.instance = new BackendAPIService();
+    }
+    return BackendAPIService.instance;
   }
-
-  async getDataSource(id: number) {
-    const response = await this.client.get(`/datasources/${id}/`);
-    return response.data;
-  }
-
-  async createDataSource(data: any) {
-    const response = await this.client.post('/datasources/', data);
-    return response.data;
-  }
-
-  async updateDataSource(id: number, data: any) {
-    const response = await this.client.patch(`/datasources/${id}/`, data);
-    return response.data;
-  }
-
-  async deleteDataSource(id: number) {
-    await this.client.delete(`/datasources/${id}/`);
-  }
-
-  async testDataSourceConnection(id: number, credentials?: any) {
-    const response = await this.client.post(`/datasources/${id}/test-connection/`, { credentials });
-    return response.data;
-  }
-
-  async getDataSourceConnectionLogs(id: number) {
-    const response = await this.client.get(`/datasources/${id}/connection-logs/`);
-    return response.data;
-  }
-
-  // ========================================
-  // PIPELINES
-  // ========================================
-
-  async getPipelines(params?: any) {
-    const response = await this.client.get('/pipelines/', { params });
-    return response.data;
-  }
-
-  async getPipeline(id: number) {
-    const response = await this.client.get(`/pipelines/${id}/`);
-    return response.data;
-  }
-
-  async createPipeline(data: any) {
-    const response = await this.client.post('/pipelines/', data);
-    return response.data;
-  }
-
-  async updatePipeline(id: number, data: any) {
-    const response = await this.client.patch(`/pipelines/${id}/`, data);
-    return response.data;
-  }
-
-  async deletePipeline(id: number) {
-    await this.client.delete(`/pipelines/${id}/`);
-  }
-
-  async executePipeline(id: number, overrideConfig?: any) {
-    const response = await this.client.post(`/pipelines/${id}/execute/`, { override_config: overrideConfig });
-    return response.data;
-  }
-
-  async cancelPipeline(id: number) {
-    const response = await this.client.post(`/pipelines/${id}/cancel/`);
-    return response.data;
-  }
-
-  async validatePipelineConfig(id: number, config: any) {
-    const response = await this.client.post(`/pipelines/${id}/validate/`, { config });
-    return response.data;
-  }
-
-  async getPipelineExecutions(pipelineId: number) {
-    const response = await this.client.get(`/pipelines/${pipelineId}/executions/`);
-    return response.data;
-  }
-
-  async getExecutionLogs(executionId: number) {
-    const response = await this.client.get(`/pipelines/executions/${executionId}/logs/`);
-    return response.data;
-  }
-
-  async retryExecution(executionId: number) {
-    const response = await this.client.post(`/pipelines/executions/${executionId}/retry/`);
-    return response.data;
-  }
-
-  async getPipelineStats(pipelineId: number) {
-    const response = await this.client.get(`/pipelines/${pipelineId}/stats/`);
-    return response.data;
-  }
-
-  async estimatePipelineResources(config: any, dataSourceId: number) {
-    const response = await this.client.post('/pipelines/estimate-resources/', { 
-      config, 
-      data_source_id: dataSourceId 
-    });
-    return response.data;
-  }
-
-  // ========================================
-  // DATASETS
-  // ========================================
-
-  async getDatasets(params?: any) {
-    const response = await this.client.get('/datasets/', { params });
-    return response.data;
-  }
-
-  async getDataset(id: number) {
-    const response = await this.client.get(`/datasets/${id}/`);
-    return response.data;
-  }
-
-  async createDataset(data: any) {
-    const response = await this.client.post('/datasets/', data);
-    return response.data;
-  }
-
-  async updateDataset(id: number, data: any) {
-    const response = await this.client.patch(`/datasets/${id}/`, data);
-    return response.data;
-  }
-
-  async deleteDataset(id: number) {
-    await this.client.delete(`/datasets/${id}/`);
-  }
-
-  async getDatasetVersions(datasetId: number) {
-    const response = await this.client.get(`/datasets/${datasetId}/versions/`);
-    return response.data;
-  }
-
-  async getDatasetLineage(datasetId: number) {
-    const response = await this.client.get(`/datasets/${datasetId}/lineage/`);
-    return response.data;
-  }
-
-  async compareDatasetVersions(version1Id: number, version2Id: number) {
-    const response = await this.client.post('/datasets/versions/compare/', {
-      version1_id: version1Id,
-      version2_id: version2Id
-    });
-    return response.data;
-  }
-
-
 }
 
-export const backendAPI = new BackendAPIService();
+export const backendAPI = BackendAPIService.getInstance();
 
 // Cleanup on window unload
 if (typeof window !== 'undefined') {

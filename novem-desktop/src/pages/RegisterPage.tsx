@@ -130,7 +130,7 @@ const RegisterPage: React.FC = () => {
             Create your account and start analyzing data with complete privacy and control.
           </Text>
 
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <div
                 style={{

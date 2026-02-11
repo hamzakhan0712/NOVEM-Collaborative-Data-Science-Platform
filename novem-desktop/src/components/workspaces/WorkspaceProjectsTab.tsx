@@ -58,7 +58,7 @@ const WorkspaceProjectsTab: React.FC<WorkspaceProjectsTabProps> = ({
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
-              <Space direction="vertical" size={8}>
+              <Space orientation="vertical" size={8}>
                 <Text
                   strong
                   style={{
@@ -136,7 +136,7 @@ const WorkspaceProjectsTab: React.FC<WorkspaceProjectsTabProps> = ({
             {projects.map((project) => (
               <Col xs={24} sm={12} lg={8} key={project.id}>
                 <Card
-                  bordered={false}
+                  variant="borderless"
                   style={{
                     backgroundColor: isDark
                       ? colors.backgroundPrimaryDark
@@ -163,7 +163,7 @@ const WorkspaceProjectsTab: React.FC<WorkspaceProjectsTabProps> = ({
                       : colors.backgroundSecondary;
                   }}
                 >
-                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                     {/* Header */}
                     <div
                       style={{

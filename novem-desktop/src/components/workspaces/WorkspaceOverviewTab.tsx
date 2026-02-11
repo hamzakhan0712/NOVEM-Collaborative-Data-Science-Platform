@@ -61,13 +61,13 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
         <Col xs={24} lg={16}>
           {/* About Section */}
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
               marginBottom: '16px',
               backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
               border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
             }}
-            bodyStyle={{ padding: '20px' }}
+            styles={{ body: { padding: '20px' } }}
           >
             <Title
               level={5}
@@ -80,7 +80,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
             >
               About
             </Title>
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               <Paragraph
                 style={{
                   margin: 0,
@@ -96,7 +96,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
 
               <Row gutter={[16, 12]}>
                 <Col span={12}>
-                  <Space direction="vertical" size={4}>
+                  <Space orientation="vertical" size={4}>
                     <Text
                       style={{
                         fontSize: '12px',
@@ -126,7 +126,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
                   </Space>
                 </Col>
                 <Col span={12}>
-                  <Space direction="vertical" size={4}>
+                  <Space orientation="vertical" size={4}>
                     <Text
                       style={{
                         fontSize: '12px',
@@ -157,7 +157,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
                   </Space>
                 </Col>
                 <Col span={12}>
-                  <Space direction="vertical" size={4}>
+                  <Space orientation="vertical" size={4}>
                     <Text
                       style={{
                         fontSize: '12px',
@@ -184,7 +184,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
                   </Space>
                 </Col>
                 <Col span={12}>
-                  <Space direction="vertical" size={4}>
+                  <Space orientation="vertical" size={4}>
                     <Text
                       style={{
                         fontSize: '12px',
@@ -220,12 +220,12 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
 
           {/* Recent Projects */}
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
               backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
               border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
             }}
-            bodyStyle={{ padding: '20px' }}
+            styles={{ body: { padding: '20px' } }}
           >
             <div
               style={{
@@ -271,7 +271,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
                 }
               />
             ) : (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 {recentProjects.map((project) => (
                   <div
                     key={project.id}
@@ -371,13 +371,13 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
         <Col xs={24} lg={8}>
           {/* Quick Stats */}
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
               marginBottom: '16px',
               backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
               border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
             }}
-            bodyStyle={{ padding: '20px' }}
+            styles={{ body: { padding: '20px' } }}
           >
             <Title
               level={5}
@@ -390,7 +390,7 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
             >
               Quick Stats
             </Title>
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <div>
                 <Row gutter={16}>
                   <Col span={12}>
@@ -511,12 +511,12 @@ const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({ workspace, 
 
           {/* Activity Timeline */}
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
               backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
               border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
             }}
-            bodyStyle={{ padding: '20px' }}
+            styles={{ body: { padding: '20px' } }}
           >
             <Title
               level={5}

@@ -121,7 +121,7 @@ const JoinRequestsBadge: React.FC<JoinRequestsBadgeProps> = ({ projectId, onUpda
                 borderBottom: `1px solid ${isDark ? colors.borderDark : colors.border}`,
               }}
             >
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                   <div>
                     <Text

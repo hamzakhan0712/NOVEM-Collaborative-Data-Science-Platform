@@ -133,7 +133,7 @@ const PasswordResetPage: React.FC = () => {
           </Text>
 
           <Steps
-            direction="vertical"
+            orientation="vertical"
             current={0}
             items={[
               {

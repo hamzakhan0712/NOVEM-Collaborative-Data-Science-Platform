@@ -53,7 +53,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         tags: values.tags || [],
       });
 
-      console.log('✅ [CreateProjectModal] Project created successfully');
+      console.log(' [CreateProjectModal] Project created successfully');
       message.success('Project created successfully');
       
       form.resetFields();
@@ -65,7 +65,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         onSuccess();
       }
     } catch (error: any) {
-      console.error('❌ [CreateProjectModal] Submit error:', error);
+      console.error(' [CreateProjectModal] Submit error:', error);
       if (error.errorFields) {
         // Validation error - Ant Design will show the error
         return;
@@ -97,7 +97,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       okText="Create Project"
       confirmLoading={loading}
       width={560}
-      destroyOnClose
+      destroyOnHidden
       styles={{
         body: { paddingTop: '24px' },
       }}
@@ -231,7 +231,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           rules={[{ required: true, message: 'Please select visibility' }]}
         >
           <Radio.Group size="large" style={{ width: '100%' }}>
-            <Space direction="vertical" style={{ width: '100%', gap: '10px' }}>
+            <Space orientation="vertical" style={{ width: '100%', gap: '10px' }}>
               {/* Private */}
               <Radio
                 value="private"

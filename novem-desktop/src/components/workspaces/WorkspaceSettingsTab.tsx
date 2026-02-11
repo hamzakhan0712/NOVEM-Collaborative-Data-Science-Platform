@@ -76,7 +76,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
       onUpdate();
     } catch (error: any) {
       if (error.errorFields) return;
-      console.error('❌ Failed to update workspace:', error);
+      console.error(' Failed to update workspace:', error);
       message.error(error.response?.data?.error || 'Failed to update workspace settings');
     } finally {
       setLoading(false);
@@ -100,7 +100,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
       onUpdate();
     } catch (error: any) {
       if (error.errorFields) return;
-      console.error('❌ Failed to update permissions:', error);
+      console.error(' Failed to update permissions:', error);
       message.error('Failed to update workspace permissions');
     } finally {
       setLoading(false);
@@ -142,7 +142,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
       message.success('Workspace avatar updated successfully');
       onUpdate();
     } catch (error: any) {
-      console.error('❌ Avatar upload failed:', error);
+      console.error(' Avatar upload failed:', error);
       message.error('Failed to upload workspace avatar');
     } finally {
       setUploadLoading(false);
@@ -162,7 +162,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
       message.success('Workspace avatar removed successfully');
       onUpdate();
     } catch (error: any) {
-      console.error('❌ Failed to remove avatar:', error);
+      console.error(' Failed to remove avatar:', error);
       message.error('Failed to remove workspace avatar');
     } finally {
       setUploadLoading(false);
@@ -174,7 +174,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
       title: 'Delete Workspace',
       icon: <ExclamationCircleOutlined />,
       content: (
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <Alert
             message="This action cannot be undone"
             description="Deleting this workspace will permanently remove all associated data."
@@ -207,7 +207,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
           message.success('Workspace deleted successfully');
           navigate('/workspaces');
         } catch (error: any) {
-          console.error('❌ Failed to delete workspace:', error);
+          console.error(' Failed to delete workspace:', error);
           message.error(error.response?.data?.error || 'Failed to delete workspace');
         }
       },
@@ -233,7 +233,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
 
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       {/* Permission Alert */}
       {!canManage && (
         <Alert
@@ -246,7 +246,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
 
       {/* Workspace Avatar */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
@@ -255,7 +255,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
         <Title level={4} style={{ marginTop: 0 }}>
           Workspace Avatar
         </Title>
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             <Avatar
               size={96}
@@ -307,7 +307,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
 
       {/* General Settings */}
       <Card
-        bordered={false}
+        variant="borderless"
         title={<Title level={4} style={{ margin: 0 }}>General Settings</Title>}
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
@@ -414,7 +414,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
 
       {/* Member Permissions */}
       <Card
-        bordered={false}
+        variant="borderless"
         title={<Title level={4} style={{ margin: 0 }}>Member Permissions</Title>}
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
@@ -461,7 +461,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
                 backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
               }}
             >
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 <Text strong style={{ fontSize: '14px' }}>
                   Allow Members to Create Projects
                 </Text>
@@ -490,7 +490,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
                 backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
               }}
             >
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 <Text strong style={{ fontSize: '14px' }}>
                   Require Join Approval
                 </Text>
@@ -518,13 +518,13 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
 
       {/* Danger Zone */}
 <Card
-  bordered={false}
+  variant="borderless"
   style={{
     backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
     border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
   }}
 >
-  <Space direction="vertical" size={20} style={{ width: '100%' }}>
+  <Space orientation="vertical" size={20} style={{ width: '100%' }}>
     <div>
       <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>
         Danger Zone
@@ -542,7 +542,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
         backgroundColor: isDark ? 'rgba(255, 77, 79, 0.03)' : 'rgba(255, 77, 79, 0.02)',
       }}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <div>
           <Text strong style={{ fontSize: '15px', display: 'block', marginBottom: '8px' }}>
             Delete This Workspace

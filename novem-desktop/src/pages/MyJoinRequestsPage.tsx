@@ -118,7 +118,7 @@ const MyJoinRequestsPage: React.FC = () => {
           return <Text type="secondary">-</Text>;
         }
         return (
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Text>{new Date(record.reviewed_at).toLocaleDateString()}</Text>
             {record.reviewed_by_name && (
               <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -174,7 +174,7 @@ const MyJoinRequestsPage: React.FC = () => {
         </div>
 
         <Card
-          bordered={false}
+          variant="borderless"
           style={{
             backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
             border: `1px solid ${isDark ? colors.borderDark : colors.border}`,

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { backendAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 import { message } from 'antd';
+import { storageManager } from '../services/offline';
+
 
 interface Workspace {
   id: number;
@@ -94,7 +96,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [currentWorkspace, setCurrentWorkspaceState] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load workspaces when user is authenticated and active
+    // Load workspaces when user is authenticated and active
   useEffect(() => {
     if (isAuthenticated && user?.account_state === 'active') {
       console.log('🏢 [WorkspaceContext] Loading workspaces for:', user.email);
@@ -125,67 +127,62 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [workspaces, currentWorkspace]);
 
   const loadWorkspaces = useCallback(async () => {
-    if (offlineMode) {
-      console.log('📴 [WorkspaceContext] Loading from cache (offline)');
-      const cached = localStorage.getItem('workspaces_cache');
-      if (cached) {
+    setLoading(true);
+    
+    try {
+      // Always load from cache first for instant display
+      console.log('💾 [WorkspaceContext] Loading from cache...');
+      const cached = await storageManager.getLocalWorkspaces();
+      
+      if (cached.length > 0) {
+        console.log('✅ [WorkspaceContext] Found', cached.length, 'cached workspaces');
+        setWorkspaces(cached);
+      }
+
+      // If online, fetch fresh data in background
+      if (!offlineMode) {
+        console.log('🌐 [WorkspaceContext] Fetching fresh data from API...');
         try {
-          const parsedWorkspaces = JSON.parse(cached);
-          console.log('✅ [WorkspaceContext] Loaded', parsedWorkspaces.length, 'from cache');
-          setWorkspaces(parsedWorkspaces);
-        } catch (error) {
-          console.error('❌ [WorkspaceContext] Cache parse error:', error);
-          setWorkspaces([]);
+          const data = await backendAPI.getWorkspaces();
+          console.log('✅ [WorkspaceContext] Received', data.length, 'workspaces');
+          
+          const processedWorkspaces = data.map((w: Workspace) => ({
+            ...w,
+            current_user_permissions: w.current_user_permissions || {
+              is_owner: false,
+              is_admin: false,
+              can_create_projects: false,
+              can_invite_members: false,
+              can_manage_settings: false,
+              can_delete_workspace: false,
+            }
+          }));
+          
+          setWorkspaces(processedWorkspaces);
+          
+          // Sync each workspace to storage
+          for (const workspace of processedWorkspaces) {
+            await storageManager.syncWorkspaceState(workspace);
+          }
+          
+          console.log('✅ [WorkspaceContext] Synced to storage');
+        } catch (apiError: any) {
+          console.warn('⚠️ [WorkspaceContext] API fetch failed, using cached data:', apiError);
+          
+          // If we don't have cached data, show error
+          if (cached.length === 0 && !apiError.offline) {
+            message.error('Failed to load workspaces');
+          }
         }
       } else {
-        console.log('⚠️ [WorkspaceContext] No cache available');
-        setWorkspaces([]);
-      }
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log('🌐 [WorkspaceContext] Fetching from API...');
-      const data = await backendAPI.getWorkspaces();
-      console.log('✅ [WorkspaceContext] Received', data.length, 'workspaces');
-      
-      // Ensure permissions exist
-      const processedWorkspaces = data.map((w: Workspace) => ({
-        ...w,
-        current_user_permissions: w.current_user_permissions || {
-          is_owner: false,
-          is_admin: false,
-          can_create_projects: false,
-          can_invite_members: false,
-          can_manage_settings: false,
-          can_delete_workspace: false,
+        console.log('📴 [WorkspaceContext] Offline mode - using cached data only');
+        if (cached.length === 0) {
+          message.info('No cached workspaces available offline');
         }
-      }));
-      
-      setWorkspaces(processedWorkspaces);
-      localStorage.setItem('workspaces_cache', JSON.stringify(processedWorkspaces));
-      console.log('✅ [WorkspaceContext] Cached successfully');
+      }
     } catch (error: any) {
       console.error('❌ [WorkspaceContext] Load failed:', error);
-      
-      // Fallback to cache
-      const cached = localStorage.getItem('workspaces_cache');
-      if (cached) {
-        try {
-          const parsedWorkspaces = JSON.parse(cached);
-          console.log('⚠️ [WorkspaceContext] Using cache fallback');
-          setWorkspaces(parsedWorkspaces);
-        } catch (e) {
-          setWorkspaces([]);
-        }
-      } else {
-        setWorkspaces([]);
-      }
-      
-      if (!error.offline) {
-        message.error('Failed to load workspaces');
-      }
+      message.error('Failed to load workspaces');
     } finally {
       setLoading(false);
     }
@@ -195,7 +192,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       console.log('🏗️ [WorkspaceContext] Creating:', data.name);
       const workspace = await backendAPI.createWorkspace(data);
-      console.log('✅ [WorkspaceContext] Created:', workspace.name);
+      console.log(' [WorkspaceContext] Created:', workspace.name);
+      
+      // Sync to storage
+      await storageManager.syncWorkspaceState(workspace);
       
       // Reload to get fresh data
       await loadWorkspaces();
@@ -205,7 +205,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       message.success('Workspace created successfully');
       return workspace;
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Create failed:', error);
+      console.error(' [WorkspaceContext] Create failed:', error);
       const errorMsg = error.response?.data?.error || 'Failed to create workspace';
       message.error(errorMsg);
       throw error;
@@ -231,10 +231,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       localStorage.setItem('workspaces_cache', JSON.stringify(updatedList));
       
       message.success('Workspace updated successfully');
-      console.log('✅ [WorkspaceContext] Updated successfully');
+      console.log(' [WorkspaceContext] Updated successfully');
       return updated;
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Update failed:', error);
+      console.error(' [WorkspaceContext] Update failed:', error);
       message.error('Failed to update workspace');
       throw error;
     }
@@ -259,17 +259,22 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       localStorage.setItem('workspaces_cache', JSON.stringify(updatedList));
       
       message.success('Workspace deleted successfully');
-      console.log('✅ [WorkspaceContext] Deleted successfully');
+      console.log(' [WorkspaceContext] Deleted successfully');
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Delete failed:', error);
+      console.error(' [WorkspaceContext] Delete failed:', error);
       message.error('Failed to delete workspace');
       throw error;
     }
   };
 
-  const refreshCurrentWorkspace = async () => {
-    if (!currentWorkspace || offlineMode) {
-      console.log('⏸️ [WorkspaceContext] Skip refresh:', { hasWorkspace: !!currentWorkspace, offlineMode });
+    const refreshCurrentWorkspace = async () => {
+    if (!currentWorkspace) {
+      console.log('⏸️ [WorkspaceContext] No current workspace to refresh');
+      return;
+    }
+
+    if (offlineMode) {
+      console.log('📴 [WorkspaceContext] Offline - using cached workspace data');
       return;
     }
 
@@ -284,10 +289,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setWorkspaces(prev => prev.map(w => w.id === updated.id ? updated : w));
       
       // Update cache
-      const updatedList = workspaces.map(w => w.id === updated.id ? updated : w);
-      localStorage.setItem('workspaces_cache', JSON.stringify(updatedList));
+      await storageManager.syncWorkspaceState(updated);
     } catch (error) {
-      console.error('❌ [WorkspaceContext] Refresh failed:', error);
+      console.warn('⚠️ [WorkspaceContext] Refresh failed, keeping existing data:', error);
     }
   };
 
@@ -302,7 +306,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         await refreshCurrentWorkspace();
       }
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Invite failed:', error);
+      console.error(' [WorkspaceContext] Invite failed:', error);
       const errorMsg = error.response?.data?.error || 'Failed to send invitation';
       message.error(errorMsg);
       throw error;
@@ -320,7 +324,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         await refreshCurrentWorkspace();
       }
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Remove member failed:', error);
+      console.error(' [WorkspaceContext] Remove member failed:', error);
       message.error('Failed to remove member');
       throw error;
     }
@@ -340,7 +344,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         await refreshCurrentWorkspace();
       }
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Update role failed:', error);
+      console.error(' [WorkspaceContext] Update role failed:', error);
       message.error('Failed to update member role');
       throw error;
     }
@@ -350,10 +354,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       console.log('📬 [WorkspaceContext] Fetching my invitations');
       const invitations = await backendAPI.getMyWorkspaceInvitations();
-      console.log('✅ [WorkspaceContext] Found', invitations.length, 'invitations');
+      console.log(' [WorkspaceContext] Found', invitations.length, 'invitations');
       return invitations;
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Get invitations failed:', error);
+      console.error(' [WorkspaceContext] Get invitations failed:', error);
       message.error('Failed to load invitations');
       return [];
     }
@@ -361,14 +365,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const acceptInvitation = async (workspaceId: number, invitationId: number) => {
     try {
-      console.log('✅ [WorkspaceContext] Accepting invitation:', invitationId);
+      console.log(' [WorkspaceContext] Accepting invitation:', invitationId);
       await backendAPI.acceptWorkspaceInvitation(workspaceId, invitationId);
       message.success('Invitation accepted! Welcome to the workspace.');
       
       // Reload workspaces to include new one
       await loadWorkspaces();
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Accept invitation failed:', error);
+      console.error(' [WorkspaceContext] Accept invitation failed:', error);
       message.error('Failed to accept invitation');
       throw error;
     }
@@ -376,11 +380,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const declineInvitation = async (workspaceId: number, invitationId: number) => {
     try {
-      console.log('❌ [WorkspaceContext] Declining invitation:', invitationId);
+      console.log(' [WorkspaceContext] Declining invitation:', invitationId);
       await backendAPI.declineWorkspaceInvitation(workspaceId, invitationId);
       message.success('Invitation declined');
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Decline invitation failed:', error);
+      console.error(' [WorkspaceContext] Decline invitation failed:', error);
       message.error('Failed to decline invitation');
       throw error;
     }
@@ -402,7 +406,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       await backendAPI.requestJoinWorkspace(workspaceId, joinMessage);
       message.success('Join request sent successfully');
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Join request failed:', error);
+      console.error(' [WorkspaceContext] Join request failed:', error);
       const errorMsg = error.response?.data?.error || 'Failed to send join request';
       message.error(errorMsg);
       throw error;
@@ -413,10 +417,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       console.log('📋 [WorkspaceContext] Fetching my workspace join requests');
       const response = await backendAPI.client.get('/workspaces/workspaces/my-join-requests/');
-      console.log('✅ [WorkspaceContext] Found', response.data.length, 'join requests');
+      console.log(' [WorkspaceContext] Found', response.data.length, 'join requests');
       return response.data;
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Get join requests failed:', error);
+      console.error(' [WorkspaceContext] Get join requests failed:', error);
       message.error('Failed to load join requests');
       return [];
     }

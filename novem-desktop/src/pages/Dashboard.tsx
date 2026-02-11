@@ -51,7 +51,7 @@ const Dashboard: React.FC = () => {
   // FIXED: Load projects when workspace changes with workspace ID
   useEffect(() => {
     if (currentWorkspace?.id) {
-      console.log('📊 [Dashboard] Loading projects for workspace:', {
+      console.log('  [Dashboard] Loading projects for workspace:', {
         id: currentWorkspace.id,
         name: currentWorkspace.name,
       });
@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
   const completedProjects = 0; // TODO: Add completion tracking
   const totalAnalyses = 0; // TODO: Add analysis tracking
 
-  console.log('📊 [Dashboard] State:', {
+  console.log('  [Dashboard] State:', {
     currentWorkspaceId: currentWorkspace?.id,
     currentWorkspaceName: currentWorkspace?.name,
     allProjectsCount: projectsList.length,
@@ -189,7 +189,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleProjectCreated = async () => {
-    console.log('✅ [Dashboard] Project created, reloading...');
+    console.log(' [Dashboard] Project created, reloading...');
     setCreateProjectVisible(false);
     if (currentWorkspace?.id) {
       await loadProjects(currentWorkspace.id); // FIXED: Pass workspace ID
@@ -201,7 +201,7 @@ const Dashboard: React.FC = () => {
       <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header Section */}
         <div style={{ marginBottom: '32px' }}>
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={8} style={{ width: '100%' }}>
             <Title
               level={2}
               style={{
@@ -226,7 +226,7 @@ const Dashboard: React.FC = () => {
               {currentWorkspace && (
                 <>
                   <Divider
-                    type="vertical"
+                    orientation="vertical"
                     style={{
                       borderColor: isDark ? colors.borderDark : colors.border,
                       margin: '0 4px',
@@ -262,13 +262,13 @@ const Dashboard: React.FC = () => {
         <Row gutter={[20, 20]} style={{ marginBottom: '32px' }}>
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                 border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
                 height: '100%',
               }}
-              bodyStyle={{ padding: '20px' }}
+              styles={{ body: { padding: '20px' } }}
             >
               <Statistic
                 title={
@@ -315,13 +315,13 @@ const Dashboard: React.FC = () => {
 
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                 border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
                 height: '100%',
               }}
-              bodyStyle={{ padding: '20px' }}
+              styles={{ body: { padding: '20px' } }}
             >
               <Statistic
                 title={
@@ -379,13 +379,13 @@ const Dashboard: React.FC = () => {
 
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                 border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
                 height: '100%',
               }}
-              bodyStyle={{ padding: '20px' }}
+              styles={{ body: { padding: '20px' } }}
             >
               <Statistic
                 title={
@@ -432,13 +432,13 @@ const Dashboard: React.FC = () => {
 
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                 border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
                 height: '100%',
               }}
-              bodyStyle={{ padding: '20px' }}
+              styles={{ body: { padding: '20px' } }}
             >
               <Statistic
                 title={
@@ -489,7 +489,7 @@ const Dashboard: React.FC = () => {
           {/* Recent Projects - 2/3 width */}
           <Col xs={24} lg={16}>
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                 border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
@@ -562,7 +562,7 @@ const Dashboard: React.FC = () => {
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
                       description={
-                        <Space direction="vertical" size={8}>
+                        <Space orientation="vertical" size={8}>
                           <Text
                             strong
                             style={{
@@ -778,17 +778,17 @@ const Dashboard: React.FC = () => {
 
           {/* Sidebar - 1/3 width */}
           <Col xs={24} lg={8}>
-            <Space direction="vertical" size={20} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={20} style={{ width: '100%' }}>
               {/* Quick Actions */}
               <Card
-                bordered={false}
+                variant="borderless"
                 style={{
                   backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                   border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
                 }}
-                bodyStyle={{ padding: '20px' }}
+                styles={{ body: { padding: '20px' } }}
               >
-                <Space direction="vertical" size={4} style={{ marginBottom: '16px' }}>
+                <Space orientation="vertical" size={4} style={{ marginBottom: '16px' }}>
                   <Text strong style={{ fontSize: '15px', fontWeight: 600 }}>
                     Quick Actions
                   </Text>
@@ -802,7 +802,7 @@ const Dashboard: React.FC = () => {
                   </Text>
                 </Space>
 
-                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                   <Button
                     block
                     size="large"
@@ -863,14 +863,14 @@ const Dashboard: React.FC = () => {
 
               {/* Activity Overview */}
               <Card
-                bordered={false}
+                variant="borderless"
                 style={{
                   backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
                   border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
                 }}
-                bodyStyle={{ padding: '20px' }}
+                styles={{ body: { padding: '20px' } }}
               >
-                <Space direction="vertical" size={4} style={{ marginBottom: '20px' }}>
+                <Space orientation="vertical" size={4} style={{ marginBottom: '20px' }}>
                   <Text strong style={{ fontSize: '15px', fontWeight: 600 }}>
                     Activity Overview
                   </Text>
@@ -884,7 +884,7 @@ const Dashboard: React.FC = () => {
                   </Text>
                 </Space>
 
-                <Space direction="vertical" size={20} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={20} style={{ width: '100%' }}>
                   {/* Project Activity */}
                   <div>
                     <div

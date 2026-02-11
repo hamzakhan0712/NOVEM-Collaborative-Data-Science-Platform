@@ -21,7 +21,7 @@ function checkService(url, name) {
 
     const req = http.request(options, (res) => {
       if (res.statusCode === 200) {
-        console.log(`✓ ${name} is running`);
+        console.log(`${name} is running`);
         resolve(true);
       } else {
         console.warn(`⚠ ${name} returned status ${res.statusCode}`);
@@ -62,7 +62,7 @@ async function checkBackends() {
     }
     console.log('');
   } else {
-    console.log('\n✓ All backend services are ready!\n');
+    console.log('\nAll backend services are ready!\n');
   }
 }
 

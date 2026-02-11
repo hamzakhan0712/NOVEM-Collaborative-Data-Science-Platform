@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 
+
 class User(AbstractUser):
     """Extended User model"""
     
@@ -72,48 +73,35 @@ class Profile(models.Model):
         return f"Profile of {self.user.email}"
 
 class UserSession(models.Model):
-    """Track active user sessions"""
+    """Track user sessions across devices"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
-    session_key = models.CharField(max_length=255, unique=True)
-    device_info = models.CharField(max_length=500, blank=True)
-    ip_address = models.GenericIPAddressField(null=True)
-    location = models.CharField(max_length=255, blank=True)
+    session_key = models.CharField(max_length=255)
+    device_name = models.CharField(max_length=255, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_activity = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
     
     class Meta:
+        db_table = 'user_sessions'
         ordering = ['-last_activity']
     
     def __str__(self):
-        return f"{self.user.email} - {self.device_info}"
+        return f"{self.user.email} - {self.device_name or 'Unknown Device'}"
+
 
 class Notification(models.Model):
     """User notifications"""
-    class NotificationType(models.TextChoices):
-        PROJECT_INVITATION = 'project_invitation', _('Project Invitation')
-        PROJECT_UPDATE = 'project_update', _('Project Update')
-        PROJECT_COMMENT = 'project_comment', _('Project Comment')
-        WORKSPACE_INVITATION = 'workspace_invitation', _('Workspace Invitation')
-        WORKSPACE_ACTIVITY = 'workspace_activity', _('Workspace Activity')
-        SYSTEM = 'system', _('System Notification')
-    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    type = models.CharField(max_length=30, choices=NotificationType.choices)
     title = models.CharField(max_length=255)
     message = models.TextField()
-    data = models.JSONField(default=dict, blank=True)
-    
-    read = models.BooleanField(default=False)
-    read_at = models.DateTimeField(null=True, blank=True)
-    
+    data = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
+        db_table = 'notifications'
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['user', 'read', '-created_at']),
-        ]
     
     def __str__(self):
         return f"{self.user.email} - {self.title}"

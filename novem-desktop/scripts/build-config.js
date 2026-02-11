@@ -26,5 +26,5 @@ const configPath = join(__dirname, '../src/config.json');
 
 writeFileSync(configPath, JSON.stringify(CONFIG, null, 2));
 
-console.log('✓ Build configuration generated');
+console.log('Build configuration generated');
 console.log(JSON.stringify(CONFIG, null, 2));

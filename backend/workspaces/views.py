@@ -4,25 +4,28 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils.text import slugify
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from datetime import timedelta
 import logging
-from django.db import models
+
 from .models import Workspace, WorkspaceMembership, WorkspaceInvitation, WorkspaceJoinRequest
 from .serializers import (
     WorkspaceListSerializer, WorkspaceDetailSerializer,
     WorkspaceCreateSerializer, WorkspaceMembershipSerializer,
-    WorkspaceInvitationSerializer,WorkspaceJoinRequestSerializer
+    WorkspaceInvitationSerializer, WorkspaceJoinRequestSerializer
 )
 from accounts.models import User
 from audit.models import AuditLog
 
 logger = logging.getLogger(__name__)
 
+
 class WorkspaceViewSet(viewsets.ModelViewSet):
     """
     Workspace management with offline sync support
+    Workspaces are ownership boundaries in NOVEM's local-first architecture
     """
     permission_classes = [IsAuthenticated]
     
@@ -44,7 +47,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        logger.info(f"🔍 Getting workspaces for user: {user.email} (ID: {user.id})")
+        logger.info(f"Retrieving workspaces for user: {user.email} (ID: {user.id})")
         
         # Get workspaces where user is owner OR a member
         queryset = Workspace.objects.filter(
@@ -55,19 +58,107 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         )
         
         count = queryset.count()
-        logger.info(f"✅ Found {count} workspaces for user {user.email}")
-        
-        if count > 0:
-            for ws in queryset:
-                logger.info(f"   - {ws.name} (ID: {ws.id}, Owner: {ws.owner.email})")
+        logger.info(f"Found {count} workspaces for user {user.email}")
         
         return queryset
     
+    def get_serializer_context(self):
+        """Ensure request is always in serializer context"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def list(self, request, *args, **kwargs):
+        """List user's workspaces with enhanced logging"""
+        logger.info(f"Listing workspaces for: {request.user.email}")
+        
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            serializer = self.get_serializer(queryset, many=True)
+            
+            logger.info(f"Successfully serialized {len(serializer.data)} workspaces")
+            
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Failed to list workspaces: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to load workspaces: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @transaction.atomic
+    def perform_create(self, serializer):
+        """
+        Create workspace with auto-onboarding for first-time users
+        Aligned with NOVEM's lifecycle: REGISTERED -> ACTIVE
+        """
+        user = self.request.user
+        
+        logger.info(f"Creating workspace for user: {user.email}")
+        logger.info(f"Validated data: {serializer.validated_data}")
+        
+        # Generate unique slug
+        base_slug = slugify(serializer.validated_data['name'])
+        slug = base_slug
+        counter = 1
+        
+        while Workspace.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        logger.info(f"Generated slug: {slug}")
+        
+        try:
+            workspace = serializer.save(owner=user, slug=slug)
+            logger.info(f"Workspace created: {workspace.id} - {workspace.name}")
+            
+            # Add creator as owner with full permissions
+            membership = WorkspaceMembership.objects.create(
+                workspace=workspace,
+                user=user,
+                role=WorkspaceMembership.Role.OWNER,
+                can_create_projects=True,
+                can_invite_members=True,
+                can_manage_settings=True
+            )
+            
+            logger.info(f"Membership created: {membership.id} - Role: {membership.role}")
+            
+            # Complete onboarding if this is first workspace (REGISTERED -> ACTIVE)
+            if user.account_state == User.AccountState.REGISTERED:
+                user.account_state = User.AccountState.ACTIVE
+                user.save(update_fields=['account_state'])
+                logger.info(f"User onboarded via workspace creation: {user.email}")
+            
+            # Audit log with IP and user agent
+            AuditLog.log_action(
+                user=user,
+                action='workspace_created',
+                category='workspace',
+                resource_type='workspace',
+                resource_id=workspace.id,
+                details={
+                    'name': workspace.name,
+                    'workspace_type': workspace.workspace_type,
+                    'visibility': workspace.visibility,
+                    'onboarding_completed': user.account_state == User.AccountState.ACTIVE
+                },
+                ip_address=getattr(self.request, 'audit_ip', None),
+                user_agent=getattr(self.request, 'audit_user_agent', '')
+            )
+            
+            logger.info(f"Workspace creation completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Workspace creation failed: {str(e)}", exc_info=True)
+            raise
+    
+    @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
-        """Handle partial updates (PATCH) for avatar uploads"""
+        """Handle partial updates (PATCH) for avatar uploads and settings"""
         workspace = self.get_object()
         
-        logger.info(f"📝 Partial update for workspace: {workspace.name}")
+        logger.info(f"Partial update for workspace: {workspace.name}")
         
         # Check permissions
         membership = workspace.workspacemembership_set.filter(user=request.user).first()
@@ -80,118 +171,46 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        updated_fields = []
+        
         # Handle file upload
         if 'avatar' in request.FILES:
             workspace.avatar = request.FILES['avatar']
-            workspace.save()
-            logger.info(f"✅ Avatar updated for workspace: {workspace.name}")
+            updated_fields.append('avatar')
+            logger.info(f"Avatar updated for workspace: {workspace.name}")
         
         # Handle other field updates
-        for field in ['name', 'description', 'workspace_type', 'visibility', 'website']:
+        for field in ['name', 'description', 'workspace_type', 'visibility', 'website', 
+                      'default_project_visibility', 'allow_member_project_creation', 
+                      'require_join_approval']:
             if field in request.data:
                 setattr(workspace, field, request.data[field])
+                updated_fields.append(field)
         
         workspace.save()
         workspace.increment_sync_version()
         
         # Audit log
-        AuditLog.objects.create(
+        AuditLog.log_action(
             user=request.user,
             action='workspace_updated',
+            category='workspace',
             resource_type='workspace',
             resource_id=workspace.id,
-            details={'updated_fields': list(request.data.keys())}
+            details={'updated_fields': updated_fields},
+            ip_address=getattr(request, 'audit_ip', None),
+            user_agent=getattr(request, 'audit_user_agent', '')
         )
         
         serializer = self.get_serializer(workspace)
         return Response(serializer.data)
     
-    def get_serializer_context(self):
-        """Ensure request is always in serializer context"""
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
-    
-    def list(self, request, *args, **kwargs):
-        """Override list to add better logging"""
-        logger.info(f"📋 Listing workspaces for: {request.user.email}")
-        
-        try:
-            queryset = self.filter_queryset(self.get_queryset())
-            serializer = self.get_serializer(queryset, many=True)
-            
-            logger.info(f"✅ Successfully serialized {len(serializer.data)} workspaces")
-            
-            return Response(serializer.data)
-        except Exception as e:
-            logger.error(f"❌ Error listing workspaces: {str(e)}", exc_info=True)
-            return Response(
-                {'error': f'Failed to load workspaces: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    def perform_create(self, serializer):
-        """Create workspace with auto-onboarding for first-time users"""
-        user = self.request.user
-        
-        logger.info(f"🏗️ Creating workspace for user: {user.email}")
-        logger.info(f"📝 Validated data: {serializer.validated_data}")
-        
-        # Generate unique slug
-        base_slug = slugify(serializer.validated_data['name'])
-        slug = base_slug
-        counter = 1
-        
-        while Workspace.objects.filter(slug=slug).exists():
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-        
-        logger.info(f"🏷️ Generated slug: {slug}")
-        
-        try:
-            workspace = serializer.save(owner=user, slug=slug)
-            logger.info(f"✅ Workspace created: {workspace.id} - {workspace.name}")
-            
-            # Add creator as owner with full permissions
-            membership = WorkspaceMembership.objects.create(
-                workspace=workspace,
-                user=user,
-                role=WorkspaceMembership.Role.OWNER,
-                can_create_projects=True,
-                can_invite_members=True,
-                can_manage_settings=True
-            )
-            
-            logger.info(f"👤 Membership created: {membership.id} - Role: {membership.role}")
-            
-            # Complete onboarding if this is first workspace
-            if user.account_state == User.AccountState.REGISTERED:
-                user.account_state = User.AccountState.ACTIVE
-                user.save(update_fields=['account_state'])
-                logger.info(f"🎉 User onboarded via workspace creation: {user.email}")
-            
-            # Audit log
-            AuditLog.objects.create(
-                user=user,
-                action='workspace_created',
-                resource_type='workspace',
-                resource_id=workspace.id,
-                details={
-                    'name': workspace.name,
-                    'workspace_type': workspace.workspace_type,
-                    'visibility': workspace.visibility
-                }
-            )
-            
-            logger.info(f"✅ Workspace creation completed successfully")
-            
-        except Exception as e:
-            logger.error(f"❌ Workspace creation failed: {str(e)}", exc_info=True)
-            raise
-    
-    @action(detail=True, methods=['post'], url_path='invite-member') 
+    @action(detail=True, methods=['post'], url_path='invite-member')
     def invite_member(self, request, pk=None):
-        """Send workspace invitation"""
+        """
+        Send workspace invitation
+        Supports NOVEM's results-first collaboration model
+        """
         workspace = self.get_object()
         
         # Check permissions
@@ -249,18 +268,21 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             )
             
             # Audit log
-            AuditLog.objects.create(
+            AuditLog.log_action(
                 user=request.user,
                 action='workspace_invitation_sent',
+                category='workspace',
                 resource_type='workspace',
                 resource_id=workspace.id,
-                details={'invitee_email': email, 'role': role}
+                details={'invitee_email': email, 'role': role},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
             )
             
-            logger.info(f"📨 Workspace invitation sent: {email} to {workspace.name}")
+            logger.info(f"Workspace invitation sent: {email} to {workspace.name}")
             
             return Response(
-                WorkspaceInvitationSerializer(invitation).data,
+                WorkspaceInvitationSerializer(invitation, context={'request': request}).data,
                 status=status.HTTP_201_CREATED
             )
             
@@ -270,9 +292,9 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
     
-    @action(detail=False, methods=['get'], url_path='my-invitations')  # ✅ Add url_path
+    @action(detail=False, methods=['get'], url_path='my-invitations')
     def my_invitations(self, request):
-        """Get user's workspace invitations"""
+        """Get user's pending workspace invitations"""
         invitations = WorkspaceInvitation.objects.filter(
             invitee=request.user,
             status=WorkspaceInvitation.Status.PENDING
@@ -297,7 +319,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get pending invitations
         invitations = WorkspaceInvitation.objects.filter(
             workspace=workspace,
             status=WorkspaceInvitation.Status.PENDING
@@ -309,7 +330,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             context={'request': request}
         )
         
-        logger.info(f"📋 Found {len(serializer.data)} pending invitations for workspace {workspace.name}")
+        logger.info(f"Found {len(serializer.data)} pending invitations for workspace {workspace.name}")
         
         return Response(serializer.data)
     
@@ -336,25 +357,27 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             status=WorkspaceInvitation.Status.PENDING
         )
         
-        # Mark as cancelled (or delete)
         invitation.status = WorkspaceInvitation.Status.DECLINED
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=['status', 'responded_at'])
         
         # Audit log
-        AuditLog.objects.create(
+        AuditLog.log_action(
             user=request.user,
             action='workspace_invitation_cancelled',
+            category='workspace',
             resource_type='workspace',
             resource_id=workspace.id,
-            details={'invitation_id': invitation.id, 'invitee_email': invitation.invitee_email}
+            details={'invitation_id': invitation.id, 'invitee_email': invitation.invitee_email},
+            ip_address=getattr(request, 'audit_ip', None),
+            user_agent=getattr(request, 'audit_user_agent', '')
         )
         
-        logger.info(f"❌ Workspace invitation cancelled: {invitation.invitee_email} for {workspace.name}")
+        logger.info(f"Workspace invitation cancelled: {invitation.invitee_email} for {workspace.name}")
         
         return Response({'message': 'Invitation cancelled'})
     
-  
+    @transaction.atomic
     @action(detail=True, methods=['post'], url_path='invitations/(?P<invitation_id>[^/.]+)/accept')
     def accept_invitation(self, request, pk=None, invitation_id=None):
         """Accept workspace invitation"""
@@ -396,39 +419,39 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 'membership': WorkspaceMembershipSerializer(existing_membership, context={'request': request}).data
             })
         
-        from django.db import transaction
-        
         try:
-            with transaction.atomic():
-                # Create membership
-                membership = WorkspaceMembership.objects.create(
-                    workspace=workspace,
-                    user=request.user,
-                    role=invitation.role,
-                    invited_by=invitation.inviter,
-                    can_create_projects=workspace.allow_member_project_creation,
-                    can_invite_members=(invitation.role in ['owner', 'admin']),
-                    can_manage_settings=(invitation.role in ['owner', 'admin'])
-                )
-                
-                # Update invitation
-                invitation.status = WorkspaceInvitation.Status.ACCEPTED
-                invitation.responded_at = timezone.now()
-                invitation.save(update_fields=['status', 'responded_at'])
-                
-                # Increment sync version
-                workspace.increment_sync_version()
-                
-                # Audit log
-                AuditLog.objects.create(
-                    user=request.user,
-                    action='workspace_invitation_accepted',
-                    resource_type='workspace',
-                    resource_id=workspace.id,
-                    details={'invitation_id': invitation.id, 'role': invitation.role}
-                )
-                
-                logger.info(f"✅ Workspace invitation accepted: {request.user.email} joined {workspace.name}")
+            # Create membership
+            membership = WorkspaceMembership.objects.create(
+                workspace=workspace,
+                user=request.user,
+                role=invitation.role,
+                invited_by=invitation.inviter,
+                can_create_projects=workspace.allow_member_project_creation,
+                can_invite_members=(invitation.role in ['owner', 'admin']),
+                can_manage_settings=(invitation.role in ['owner', 'admin'])
+            )
+            
+            # Update invitation
+            invitation.status = WorkspaceInvitation.Status.ACCEPTED
+            invitation.responded_at = timezone.now()
+            invitation.save(update_fields=['status', 'responded_at'])
+            
+            # Increment sync version
+            workspace.increment_sync_version()
+            
+            # Audit log
+            AuditLog.log_action(
+                user=request.user,
+                action='workspace_invitation_accepted',
+                category='workspace',
+                resource_type='workspace',
+                resource_id=workspace.id,
+                details={'invitation_id': invitation.id, 'role': invitation.role},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
+            )
+            
+            logger.info(f"Workspace invitation accepted: {request.user.email} joined {workspace.name}")
             
             return Response({
                 'message': 'Invitation accepted successfully',
@@ -436,7 +459,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
-            logger.error(f"❌ Failed to accept workspace invitation: {str(e)}", exc_info=True)
+            logger.error(f"Failed to accept workspace invitation: {str(e)}", exc_info=True)
             return Response(
                 {'error': f'Failed to accept invitation: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -445,7 +468,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='invitations/(?P<invitation_id>[^/.]+)/decline')
     def decline_invitation(self, request, pk=None, invitation_id=None):
         """Decline workspace invitation"""
-        # Get workspace directly to bypass membership filtering
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -467,19 +489,21 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         invitation.save(update_fields=['status', 'responded_at'])
         
         # Audit log
-        AuditLog.objects.create(
+        AuditLog.log_action(
             user=request.user,
             action='workspace_invitation_declined',
+            category='workspace',
             resource_type='workspace',
             resource_id=workspace.id,
-            details={'invitation_id': invitation.id}
+            details={'invitation_id': invitation.id},
+            ip_address=getattr(request, 'audit_ip', None),
+            user_agent=getattr(request, 'audit_user_agent', '')
         )
         
-        logger.info(f"❌ Workspace invitation declined: {request.user.email} declined {workspace.name}")
+        logger.info(f"Workspace invitation declined: {request.user.email} declined {workspace.name}")
         
         return Response({'message': 'Invitation declined'})
-
- 
+    
     @action(detail=True, methods=['delete'], url_path='remove-member')
     def remove_member(self, request, pk=None):
         """Remove member from workspace"""
@@ -505,15 +529,20 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         
         membership = workspace.workspacemembership_set.filter(user_id=user_id).first()
         if membership:
+            removed_email = membership.user.email
             membership.delete()
             workspace.increment_sync_version()
             
-            AuditLog.objects.create(
+            # Audit log
+            AuditLog.log_action(
                 user=request.user,
                 action='workspace_member_removed',
+                category='workspace',
                 resource_type='workspace',
                 resource_id=workspace.id,
-                details={'removed_user_id': user_id}
+                details={'removed_user_id': user_id, 'removed_email': removed_email},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
             )
             
             return Response({'message': 'Member removed from workspace'})
@@ -544,9 +573,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'], url_path='request-join')
     def request_join(self, request, pk=None):
-        """Request to join a workspace"""
-        # DON'T use self.get_object() - it filters by membership
-        # Instead, get workspace directly and check visibility
+        """Request to join a workspace (for public/internal workspaces)"""
         try:
             workspace = Workspace.objects.select_related('owner').get(pk=pk)
         except Workspace.DoesNotExist:
@@ -557,7 +584,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         
         user = request.user
         
-        # Check if workspace allows join requests (must be public or internal)
+        # Check visibility
         if workspace.visibility == Workspace.Visibility.PRIVATE:
             return Response(
                 {'error': 'This workspace is private and does not accept join requests'},
@@ -600,22 +627,24 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         )
         
         # Audit log
-        AuditLog.objects.create(
+        AuditLog.log_action(
             user=user,
             action='workspace_join_requested',
+            category='workspace',
             resource_type='workspace',
             resource_id=workspace.id,
-            details={'join_request_id': join_request.id}
+            details={'join_request_id': join_request.id},
+            ip_address=getattr(request, 'audit_ip', None),
+            user_agent=getattr(request, 'audit_user_agent', '')
         )
         
-        logger.info(f"📨 Join request created: {user.email} for workspace {workspace.name}")
+        logger.info(f"Join request created: {user.email} for workspace {workspace.name}")
         
         return Response(
             WorkspaceJoinRequestSerializer(join_request, context={'request': request}).data,
             status=status.HTTP_201_CREATED
         )
-
-
+    
     @action(detail=True, methods=['get'], url_path='join-requests')
     def join_requests(self, request, pk=None):
         """Get all pending join requests for a workspace (admin/owner only)"""
@@ -632,7 +661,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get pending requests
         requests_qs = WorkspaceJoinRequest.objects.filter(
             workspace=workspace,
             status=WorkspaceJoinRequest.Status.PENDING
@@ -646,6 +674,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.data)
     
+    @transaction.atomic
     @action(detail=True, methods=['post'], url_path='join-requests/(?P<request_id>[^/.]+)/approve')
     def approve_join_request(self, request, pk=None, request_id=None):
         """Approve a workspace join request (admin/owner only)"""
@@ -662,7 +691,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get join request
         join_request = get_object_or_404(
             WorkspaceJoinRequest,
             id=request_id,
@@ -670,7 +698,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             status=WorkspaceJoinRequest.Status.PENDING
         )
         
-        # Check if user is already a member (edge case)
+        # Check if user is already a member
         if workspace.workspacemembership_set.filter(user=join_request.user).exists():
             join_request.status = WorkspaceJoinRequest.Status.APPROVED
             join_request.reviewed_at = timezone.now()
@@ -684,53 +712,53 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         # Get role from request data (default to member)
         role = request.data.get('role', WorkspaceMembership.Role.MEMBER)
         
-        # Create membership with transaction
-        from django.db import transaction
-        
         try:
-            with transaction.atomic():
-                # Create membership
-                new_membership = WorkspaceMembership.objects.create(
-                    workspace=workspace,
-                    user=join_request.user,
-                    role=role,
-                    invited_by=request.user,
-                    can_create_projects=workspace.allow_member_project_creation,
-                    can_invite_members=(role in ['owner', 'admin']),
-                    can_manage_settings=(role in ['owner', 'admin'])
-                )
-                
-                # Update join request
-                join_request.status = WorkspaceJoinRequest.Status.APPROVED
-                join_request.reviewed_at = timezone.now()
-                join_request.reviewed_by = request.user
-                join_request.save()
-                
-                # Increment sync version
-                workspace.increment_sync_version()
-                
-                # Audit log
-                AuditLog.objects.create(
-                    user=request.user,
-                    action='workspace_join_request_approved',
-                    resource_type='workspace',
-                    resource_id=workspace.id,
-                    details={
-                        'join_request_id': join_request.id,
-                        'approved_user_id': join_request.user.id,
-                        'role': role
-                    }
-                )
-                
-                logger.info(f"✅ Join request approved: {join_request.user.email} joined {workspace.name}")
-        
+            # Create membership
+            new_membership = WorkspaceMembership.objects.create(
+                workspace=workspace,
+                user=join_request.user,
+                role=role,
+                invited_by=request.user,
+                can_create_projects=workspace.allow_member_project_creation,
+                can_invite_members=(role in ['owner', 'admin']),
+                can_manage_settings=(role in ['owner', 'admin'])
+            )
+            
+            # Update join request
+            join_request.status = WorkspaceJoinRequest.Status.APPROVED
+            join_request.reviewed_at = timezone.now()
+            join_request.reviewed_by = request.user
+            join_request.save()
+            
+            # Increment sync version
+            workspace.increment_sync_version()
+            
+            # Audit log
+            AuditLog.log_action(
+                user=request.user,
+                action='workspace_join_request_approved',
+                category='workspace',
+                resource_type='workspace',
+                resource_id=workspace.id,
+                details={
+                    'join_request_id': join_request.id,
+                    'approved_user_id': join_request.user.id,
+                    'approved_email': join_request.user.email,
+                    'role': role
+                },
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
+            )
+            
+            logger.info(f"Join request approved: {join_request.user.email} joined {workspace.name}")
+            
             return Response({
                 'message': 'Join request approved successfully',
                 'membership': WorkspaceMembershipSerializer(new_membership, context={'request': request}).data
             })
             
         except Exception as e:
-            logger.error(f"❌ Failed to approve join request: {str(e)}", exc_info=True)
+            logger.error(f"Failed to approve join request: {str(e)}", exc_info=True)
             return Response(
                 {'error': f'Failed to approve join request: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -752,7 +780,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get join request
         join_request = get_object_or_404(
             WorkspaceJoinRequest,
             id=request_id,
@@ -760,30 +787,33 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             status=WorkspaceJoinRequest.Status.PENDING
         )
         
-        # Update join request
         join_request.status = WorkspaceJoinRequest.Status.REJECTED
         join_request.reviewed_at = timezone.now()
         join_request.reviewed_by = request.user
         join_request.save()
         
         # Audit log
-        AuditLog.objects.create(
+        AuditLog.log_action(
             user=request.user,
             action='workspace_join_request_rejected',
+            category='workspace',
             resource_type='workspace',
             resource_id=workspace.id,
             details={
                 'join_request_id': join_request.id,
-                'rejected_user_id': join_request.user.id
-            }
+                'rejected_user_id': join_request.user.id,
+                'rejected_email': join_request.user.email
+            },
+            ip_address=getattr(request, 'audit_ip', None),
+            user_agent=getattr(request, 'audit_user_agent', '')
         )
         
-        logger.info(f"❌ Join request rejected: {join_request.user.email} for workspace {workspace.name}")
+        logger.info(f"Join request rejected: {join_request.user.email} for workspace {workspace.name}")
         
         return Response({
             'message': 'Join request rejected'
         })
-    # Add to WorkspaceViewSet class
+    
     @action(detail=False, methods=['get'], url_path='my-join-requests')
     def my_join_requests(self, request):
         """Get current user's workspace join requests"""
@@ -797,15 +827,15 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             context={'request': request}
         )
         
-        logger.info(f"📋 User {request.user.email} has {len(serializer.data)} workspace join requests")
+        logger.info(f"User {request.user.email} has {len(serializer.data)} workspace join requests")
         
         return Response(serializer.data)
-
+    
     @action(detail=False, methods=['get'])
     def browse(self, request):
         """
         Browse discoverable workspaces
-        Returns workspaces user can discover and request to join
+        Returns public/internal workspaces user can request to join
         """
         user = request.user
         
@@ -822,8 +852,8 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         ).select_related('owner').prefetch_related(
             'workspacemembership_set'
         ).annotate(
-            member_count=models.Count('workspacemembership'),
-            project_count=models.Count('projects')
+            member_count=Count('workspacemembership', distinct=True),
+            project_count=Count('projects', distinct=True)
         ).order_by('-updated_at')[:50]
         
         # Search filter
@@ -853,9 +883,9 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             'recommendations': recommendations,
             'total': queryset.count()
         })
-
+    
     def _get_workspace_recommendations(self, user, available_workspaces):
-        """Calculate workspace recommendations"""
+        """Calculate workspace recommendations based on activity and team size"""
         recommendations = []
         
         for workspace in available_workspaces:
@@ -863,14 +893,15 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             reasons = []
             
             # Active workspace
-            if workspace.project_count > 0:
+            if hasattr(workspace, 'project_count') and workspace.project_count > 0:
                 score += workspace.project_count * 2
                 reasons.append(f"{workspace.project_count} active projects")
             
             # Good team size
-            if 3 <= workspace.member_count <= 20:
-                score += 5
-                reasons.append(f"{workspace.member_count} members")
+            if hasattr(workspace, 'member_count'):
+                if 3 <= workspace.member_count <= 20:
+                    score += 5
+                    reasons.append(f"{workspace.member_count} members")
             
             # Recent activity
             days_since_update = (timezone.now() - workspace.updated_at).days
@@ -892,3 +923,4 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         
         recommendations.sort(key=lambda x: x['score'], reverse=True)
         return recommendations[:10]
+    

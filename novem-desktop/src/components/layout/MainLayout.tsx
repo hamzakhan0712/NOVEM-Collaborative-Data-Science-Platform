@@ -18,8 +18,6 @@ import {
 } from 'antd';
 import {
   ProjectOutlined,
-  DatabaseOutlined,
-  BarChartOutlined,
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
@@ -27,13 +25,10 @@ import {
   FolderOutlined,
   DownOutlined,
   HomeOutlined,
-  CloudOutlined,
   BellOutlined,
   CheckOutlined,
   SearchOutlined,
   TeamOutlined,
-  WifiOutlined,
-  DisconnectOutlined,
   WarningOutlined,
   MailOutlined,
   ClockCircleOutlined,
@@ -47,6 +42,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { backendAPI } from '../../services/api';
 import { colors } from '../../theme/config';
+import StatusBar from '../common/StatusBar';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -72,7 +68,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isDark = theme === 'dark';
 
   // Load notifications
-  useEffect(() => {
+   useEffect(() => {
     if (user && !offlineMode) {
       loadNotifications();
     }
@@ -336,7 +332,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   transition: 'background-color 0.2s',
                 }}
               >
-                <Space direction="vertical" size={14} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={14} style={{ width: '100%' }}>
                   {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
                     <div
@@ -537,189 +533,163 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <Layout style={{ minHeight: '100vh', maxHeight: '100vh', overflow: 'hidden' }}>
-      {/* Header */}
-      <Header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 32px',
-          height: '64px',
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
-          borderBottom: `1px solid ${isDark ? colors.borderDark : colors.border}`,
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        {/* Left Section */}
-        <Space size={28} align="center">
-          {/* Logo */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px', 
-              cursor: 'pointer',
+    {/* Header */}
+    <Header
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0 32px',
+        height: '64px',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
+        borderBottom: `1px solid ${isDark ? colors.borderDark : colors.border}`,
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      {/* Left Section */}
+      <Space size={28} align="center">
+        {/* Logo */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            cursor: 'pointer',
+          }}
+          onClick={() => navigate('/dashboard')}
+        >
+          <img
+            src="/logo.png"
+            alt="NOVEM"
+            style={{ height: '32px', width: 'auto' }}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
             }}
-            onClick={() => navigate('/dashboard')}
+          />
+          <Text
+            style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              color: colors.logoCyan,
+              letterSpacing: '-0.02em',
+            }}
           >
-            <img
-              src="/logo.png"
-              alt="NOVEM"
-              style={{ height: '32px', width: 'auto' }}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
+            NOVEM
+          </Text>
+        </div>
+
+        {/* Workspace Selector */}
+        {currentWorkspace && workspaceList.length > 0 && (
+          <>
+            <Divider
+              orientation="vertical"
+              style={{
+                height: '24px',
+                borderColor: isDark ? colors.borderDark : colors.border,
+                margin: 0,
               }}
             />
-            <Text
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: colors.logoCyan,
-                letterSpacing: '-0.02em',
-              }}
+            <Dropdown
+              menu={{ items: workspaceMenuItems }}
+              trigger={['click']}
+              disabled={workspaceList.length === 0}
             >
-              NOVEM
-            </Text>
-          </div>
-
-          {/* Workspace Selector */}
-          {currentWorkspace && workspaceList.length > 0 && (
-            <>
-              <Divider
-                type="vertical"
+              <Button
+                type="text"
                 style={{
-                  height: '24px',
-                  borderColor: isDark ? colors.borderDark : colors.border,
-                  margin: 0,
+                  height: '40px',
+                  padding: '0 16px',
+                  color: isDark ? colors.textPrimaryDark : colors.textPrimary,
+                  fontWeight: 500,
+                  border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
+                  backgroundColor: isDark
+                    ? colors.backgroundTertiaryDark
+                    : colors.backgroundTertiary,
                 }}
-              />
-              <Dropdown
-                menu={{ items: workspaceMenuItems }}
-                trigger={['click']}
-                disabled={workspaceList.length === 0}
               >
-                <Button
-                  type="text"
-                  style={{
-                    height: '40px',
-                    padding: '0 16px',
-                    color: isDark ? colors.textPrimaryDark : colors.textPrimary,
-                    fontWeight: 500,
-                    border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
-                    backgroundColor: isDark
-                      ? colors.backgroundTertiaryDark
-                      : colors.backgroundTertiary,
-                  }}
-                >
-                  <Space size={10}>
-                    <Avatar
-                      size={24}
-                      style={{
-                        backgroundColor: isDark
-                          ? 'rgba(0, 200, 83, 0.1)'
-                          : 'rgba(0, 200, 83, 0.08)',
-                        color: colors.logoCyan,
-                        fontSize: '12px',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {currentWorkspace.name.charAt(0).toUpperCase()}
-                    </Avatar>
-                    <Text
-                      style={{
-                        color: 'inherit',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        maxWidth: '180px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {currentWorkspace.name}
-                    </Text>
-                    <DownOutlined style={{ fontSize: '11px', opacity: 0.6 }} />
-                  </Space>
-                </Button>
-              </Dropdown>
-            </>
-          )}
-        </Space>
+                <Space size={10}>
+                  <Avatar
+                    size={24}
+                    style={{
+                      backgroundColor: isDark
+                        ? 'rgba(0, 200, 83, 0.1)'
+                        : 'rgba(0, 200, 83, 0.08)',
+                      color: colors.logoCyan,
+                      fontSize: '12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {currentWorkspace.name.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Text
+                    style={{
+                      color: 'inherit',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      maxWidth: '180px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {currentWorkspace.name}
+                  </Text>
+                  <DownOutlined style={{ fontSize: '11px', opacity: 0.6 }} />
+                </Space>
+              </Button>
+            </Dropdown>
+          </>
+        )}
+      </Space>
 
-        {/* Right Section */}
-        <Space size={14}>
-          {/* Connection Status */}
-          <Tooltip
-            title={
-              offlineMode
-                ? `Offline mode - ${daysRemaining} days remaining`
-                : 'Connected to server'
-            }
+      {/* Right Section */}
+      <Space size={14}>
+
+        {/* Theme Toggle */}
+        <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+          <Button
+            type="text"
+            icon={<BulbOutlined style={{ fontSize: '18px' }} />}
+            onClick={toggleTheme}
+            style={{
+              height: '40px',
+              width: '40px',
+              color: isDark ? colors.textPrimaryDark : colors.textPrimary,
+              border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
+            }}
+          />
+        </Tooltip>
+
+        {/* Notifications */}
+        <Popover
+          content={notificationsContent}
+          trigger="click"
+          placement="bottomRight"
+          open={notificationsOpen}
+          onOpenChange={setNotificationsOpen}
+          overlayStyle={{ padding: 0 }}
+          arrow={false}
+        >
+          <Badge
+            count={totalNotifications}
+            offset={[-6, 6]}
+            style={{
+              backgroundColor: colors.logoCyan,
+              fontSize: '11px',
+              fontWeight: 600,
+              minWidth: '18px',
+              height: '18px',
+              lineHeight: '18px',
+            }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                backgroundColor: offlineMode
-                  ? isDark
-                    ? 'rgba(250, 173, 20, 0.1)'
-                    : 'rgba(250, 173, 20, 0.08)'
-                  : isDark
-                  ? 'rgba(0, 200, 83, 0.1)'
-                  : 'rgba(0, 200, 83, 0.08)',
-                border: `1px solid ${
-                  offlineMode
-                    ? isDark
-                      ? 'rgba(250, 173, 20, 0.2)'
-                      : 'rgba(250, 173, 20, 0.15)'
-                    : isDark
-                    ? 'rgba(0, 200, 83, 0.2)'
-                    : 'rgba(0, 200, 83, 0.15)'
-                }`,
-              }}
-            >
-              {offlineMode ? (
-                <DisconnectOutlined
-                  style={{
-                    fontSize: '13px',
-                    color: colors.warning,
-                  }}
-                />
-              ) : (
-                <WifiOutlined
-                  style={{
-                    fontSize: '13px',
-                    color: colors.success,
-                  }}
-                />
-              )}
-              <Text
-                style={{
-                  fontSize: '13px',
-                  color: offlineMode ? colors.warning : colors.success,
-                  fontWeight: 600,
-                  letterSpacing: '0.01em',
-                }}
-              >
-                {offlineMode ? 'Offline' : 'Online'}
-              </Text>
-            </div>
-          </Tooltip>
-
-          {/* Theme Toggle */}
-          <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
             <Button
               type="text"
-              icon={<BulbOutlined style={{ fontSize: '18px' }} />}
-              onClick={toggleTheme}
+              icon={<BellOutlined style={{ fontSize: '18px' }} />}
               style={{
                 height: '40px',
                 width: '40px',
@@ -727,160 +697,131 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
               }}
             />
-          </Tooltip>
+          </Badge>
+        </Popover>
 
-          {/* Notifications */}
-          <Popover
-            content={notificationsContent}
-            trigger="click"
-            placement="bottomRight"
-            open={notificationsOpen}
-            onOpenChange={setNotificationsOpen}
-            overlayStyle={{ padding: 0 }}
-            arrow={false}
+        {/* User Menu */}
+        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+          <Button
+            type="text"
+            style={{
+              height: '40px',
+              padding: '0 14px',
+              color: isDark ? colors.textPrimaryDark : colors.textPrimary,
+              border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
+            }}
           >
-            <Badge
-              count={totalNotifications}
-              offset={[-6, 6]}
-              style={{
-                backgroundColor: colors.logoCyan,
-                fontSize: '11px',
-                fontWeight: 600,
-                minWidth: '18px',
-                height: '18px',
-                lineHeight: '18px',
-              }}
-            >
-              <Button
-                type="text"
-                icon={<BellOutlined style={{ fontSize: '18px' }} />}
+            <Space size={10}>
+              <Avatar
+                size={26}
+                icon={<UserOutlined />}
+                src={(user as any)?.profile_picture}
                 style={{
-                  height: '40px',
-                  width: '40px',
-                  color: isDark ? colors.textPrimaryDark : colors.textPrimary,
-                  border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
+                  backgroundColor: colors.logoCyan,
+                  fontSize: '13px',
+                  fontWeight: 600,
                 }}
               />
-            </Badge>
-          </Popover>
-
-          {/* User Menu */}
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-            <Button
-              type="text"
-              style={{
-                height: '40px',
-                padding: '0 14px',
-                color: isDark ? colors.textPrimaryDark : colors.textPrimary,
-                border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
-              }}
-            >
-              <Space size={10}>
-                <Avatar
-                  size={26}
-                  icon={<UserOutlined />}
-                  src={(user as any)?.profile_picture}
+              <div style={{ textAlign: 'left', lineHeight: '1.3' }}>
+                <Text
                   style={{
-                    backgroundColor: colors.logoCyan,
-                    fontSize: '13px',
-                    fontWeight: 600,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: 'inherit',
+                    display: 'block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '140px',
                   }}
-                />
-                <div style={{ textAlign: 'left', lineHeight: '1.3' }}>
-                  <Text
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'inherit',
-                      display: 'block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '140px',
-                    }}
-                  >
-                    {user?.first_name || user?.username}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: '12px',
-                      color: isDark ? colors.textTertiaryDark : colors.textTertiary,
-                      display: 'block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '140px',
-                    }}
-                  >
-                    {user?.email}
-                  </Text>
-                </div>
-                <DownOutlined style={{ fontSize: '11px', opacity: 0.6 }} />
-              </Space>
-            </Button>
-          </Dropdown>
-        </Space>
-      </Header>
-
-      {/* Offline Warning */}
-      {offlineMode && daysRemaining <= 3 && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 64,
-            left: 0,
-            right: 0,
-            zIndex: 999,
-          }}
-        >
-          <Alert
-            message={
-              <Space size={10}>
-                <WarningOutlined style={{ fontSize: '14px' }} />
-                <Text strong style={{ fontSize: '14px' }}>
-                  Offline Mode: {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining
+                >
+                  {user?.first_name || user?.username}
                 </Text>
-              </Space>
-            }
-            description={
-              <Text style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                Your offline access will expire soon. Please reconnect to sync your work and
-                continue collaborating.
-              </Text>
-            }
-            type="warning"
-            banner
-            closable
-            style={{
-              borderRadius: 0,
-              padding: '16px 32px',
-              borderBottom: `1px solid ${isDark ? colors.borderDark : colors.border}`,
-            }}
-          />
-        </div>
-      )}
+                <Text
+                  style={{
+                    fontSize: '12px',
+                    color: isDark ? colors.textTertiaryDark : colors.textTertiary,
+                    display: 'block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '140px',
+                  }}
+                >
+                  {user?.email}
+                </Text>
+              </div>
+              <DownOutlined style={{ fontSize: '11px', opacity: 0.6 }} />
+            </Space>
+          </Button>
+        </Dropdown>
+      </Space>
+    </Header>
 
-      <Layout style={{ marginTop: offlineMode && daysRemaining <= 3 ? 112 : 64 }}>
-        {/* Sidebar */}
-        <Sider
-          width={240}
-          collapsedWidth={64}
-          collapsed={collapsed}
-          trigger={null}
-          style={{
-            height: 'calc(100vh - 64px)',
-            position: 'fixed',
-            left: 0,
-            top: offlineMode && daysRemaining <= 3 ? 112 : 64,
-            bottom: 0,
+    {/* Offline Warning Banner */}
+    {offlineMode && daysRemaining <= 3 && (
+      <Alert
+        message={
+          <Space size={10}>
+            <WarningOutlined style={{ fontSize: '14px' }} />
+            <Text strong style={{ fontSize: '14px' }}>
+              Offline Mode: {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining
+            </Text>
+          </Space>
+        }
+        description={
+          <Text style={{ fontSize: '13px', lineHeight: '1.5' }}>
+            Your offline access will expire soon. Please reconnect to sync your work and
+            continue collaborating.
+          </Text>
+        }
+        type="warning"
+        banner
+        closable
+        style={{
+          position: 'fixed',
+          top: 64,
+          left: 0,
+          right: 0,
+          zIndex: 999,
+        }}
+      />
+    )}
+
+    <Layout style={{ marginTop: offlineMode && daysRemaining <= 3 ? 112 : 64 }}>
+      {/* Sidebar */}
+      <Sider
+        width={240}
+        collapsedWidth={64}
+        collapsed={collapsed}
+        trigger={null}
+        style={{
+          height: 'calc(100vh - 64px - 32px)', // Subtract header and status bar
+          position: 'fixed',
+          left: 0,
+          top: offlineMode && daysRemaining <= 3 ? 112 : 64,
+          bottom: 32, // Leave space for status bar
+          overflowY: 'hidden',
+          overflowX: 'hidden',
+          backgroundColor: isDark ? colors.backgroundSecondaryDark : colors.surfaceLight,
+          borderRight: `1px solid ${isDark ? colors.borderDark : colors.border}`,
+          transition: 'all 0.2s',
+        }}
+      >
+        {/* Container with proper flex layout */}
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          height: '100%',
+          overflow: 'hidden'
+        }}>
+          {/* Navigation Menu - Takes remaining space */}
+          <div style={{ 
+            flex: 1,
             overflowY: 'auto',
             overflowX: 'hidden',
-            backgroundColor: isDark ? colors.backgroundSecondaryDark : colors.surfaceLight,
-            borderRight: `1px solid ${isDark ? colors.borderDark : colors.border}`,
-            transition: 'all 0.2s',
-          }}
-        >
-          <div style={{ padding: '20px 16px' }}>
+            padding: '20px 16px'
+          }}>
             <Menu
               mode="inline"
               selectedKeys={[getSelectedKey()]}
@@ -893,9 +834,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   key: 'dashboard',
                   icon: <HomeOutlined style={{ fontSize: '16px' }} />,
                   label: collapsed ? null : (
-                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>
-                      Dashboard
-                    </Text>
+                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>Dashboard</Text>
                   ),
                   title: 'Dashboard',
                   onClick: () => navigate('/dashboard'),
@@ -905,9 +844,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   key: 'workspaces',
                   icon: <TeamOutlined style={{ fontSize: '16px' }} />,
                   label: collapsed ? null : (
-                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>
-                      Workspaces
-                    </Text>
+                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>Workspaces</Text>
                   ),
                   title: 'Workspaces',
                   onClick: () => navigate('/workspaces'),
@@ -917,9 +854,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   key: 'projects',
                   icon: <ProjectOutlined style={{ fontSize: '16px' }} />,
                   label: collapsed ? null : (
-                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>
-                      Projects
-                    </Text>
+                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>Projects</Text>
                   ),
                   title: 'Projects',
                   onClick: () => navigate('/projects'),
@@ -929,9 +864,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   key: 'browse',
                   icon: <SearchOutlined style={{ fontSize: '16px' }} />,
                   label: collapsed ? null : (
-                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>
-                      Browse
-                    </Text>
+                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>Browse</Text>
                   ),
                   title: 'Browse',
                   onClick: () => navigate('/browse'),
@@ -946,9 +879,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   key: 'settings',
                   icon: <SettingOutlined style={{ fontSize: '16px' }} />,
                   label: collapsed ? null : (
-                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>
-                      Settings
-                    </Text>
+                    <Text style={{ fontSize: '14px', fontWeight: 500 }}>Settings</Text>
                   ),
                   title: 'Settings',
                   onClick: () => navigate('/settings'),
@@ -958,18 +889,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             />
           </div>
 
-          {/* Collapse Toggle */}
+          {/* System Status Section - Fixed at bottom */}
           <div
             style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
+              flexShrink: 0,
               padding: '16px',
               borderTop: `1px solid ${isDark ? colors.borderDark : colors.border}`,
-              backgroundColor: isDark ? colors.backgroundSecondaryDark : colors.surfaceLight,
+              backgroundColor: isDark
+                ? colors.backgroundPrimaryDark
+                : colors.backgroundPrimary,
             }}
           >
+
+            {/* Collapse Toggle */}
             <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">
               <Button
                 type="text"
@@ -996,30 +928,45 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </Button>
             </Tooltip>
           </div>
-        </Sider>
+        </div>
+      </Sider>
 
-        {/* Main Content */}
-        <Layout
+      {/* Main Content */}
+      <Layout
+        style={{
+          marginLeft: collapsed ? 64 : 240,
+          transition: 'margin-left 0.2s',
+          height: 'calc(100vh - 64px)',
+          overflow: 'hidden',
+        }}
+      >
+        <Content
           style={{
-            marginLeft: collapsed ? 80 : 240,
-            transition: 'margin-left 0.2s',
-            height: 'calc(100vh - 60px)',
-            overflow: 'hidden',
+            height: '100%',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            backgroundColor: isDark
+              ? colors.backgroundSecondaryDark
+              : colors.backgroundSecondary,
           }}
         >
-          <Content
-            style={{
-              height: '100%',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              backgroundColor: isDark ? colors.backgroundSecondaryDark : colors.backgroundSecondary,
-            }}
-          >
-            {children}
-          </Content>
-        </Layout>
+          {children}
+        </Content>
       </Layout>
     </Layout>
+    {/* Professional Status Bar at Bottom */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+        }}
+      >
+        <StatusBar />
+      </div>
+  </Layout>
   );
 };
 

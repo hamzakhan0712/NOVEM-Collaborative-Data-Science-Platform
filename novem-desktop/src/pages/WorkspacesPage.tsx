@@ -212,7 +212,7 @@ const WorkspacesPage: React.FC = () => {
 
         {/* Filters */}
         <Card
-          bordered={false}
+          variant="borderless"
           style={{
             marginBottom: '16px',
             backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
@@ -280,7 +280,7 @@ const WorkspacesPage: React.FC = () => {
               padding: '60px 24px',
             }}
           >
-            <Space direction="vertical" align="center" size={16}>
+            <Space orientation="vertical" align="center" size={16}>
               <Spin
                 indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />}
                 size="large"
@@ -371,7 +371,7 @@ const WorkspacesPage: React.FC = () => {
               return (
                 <Col xs={24} sm={12} lg={8} key={workspace.id}>
                   <Card
-                    bordered={false}
+                    variant="borderless"
                     hoverable
                     style={{
                       backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
@@ -468,7 +468,7 @@ const WorkspacesPage: React.FC = () => {
                             >
                               {getWorkspaceTypeLabel(workspace.workspace_type)}
                             </Text>
-                            <Divider type="vertical" style={{ margin: 0, height: '12px' }} />
+                            <Divider orientation="vertical" style={{ margin: 0, height: '12px' }} />
                             <Badge
                               status={getRoleBadgeStatus(workspace)}
                               text={
@@ -490,7 +490,7 @@ const WorkspacesPage: React.FC = () => {
 
                     {/* Card Body */}
                     <div style={{ padding: '16px 20px' }}>
-                      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                         {/* Description */}
                         <Paragraph
                           ellipsis={{ rows: 2 }}

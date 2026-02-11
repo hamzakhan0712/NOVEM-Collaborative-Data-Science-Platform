@@ -19,7 +19,7 @@ from datetime import timedelta
 import json
 import csv
 import logging
-
+from django.db import transaction
 from .serializers import (
     RegisterSerializer, LoginSerializer, 
     UserSerializer, ProfileSerializer, UpdateProfileSerializer,
@@ -30,6 +30,7 @@ from .serializers import (
 from .models import User, Profile, UserSession, Notification
 from projects.models import Project, ProjectMembership
 from workspaces.models import Workspace, WorkspaceMembership
+from django.db import connection
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,27 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         
+        # Set offline grace period (7 days from registration)
+        user.offline_grace_expires = timezone.now() + timedelta(days=7)
+        user.save(update_fields=['offline_grace_expires'])
+        
         refresh = RefreshToken.for_user(user)
         
         logger.info(f"User registered: {user.email} (state: {user.account_state})")
+        
+        # Create audit log
+        try:
+            AuditLog.objects.create(
+                user=user,
+                action='user_registered',
+                resource_type='user',
+                resource_id=user.id,
+                details={'email': user.email, 'account_state': user.account_state},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
+            )
+        except Exception as e:
+            logger.error(f"Failed to create audit log: {e}")
         
         return Response({
             'user': UserSerializer(user, context={'request': request}).data,
@@ -54,8 +73,9 @@ class RegisterView(generics.CreateAPIView):
             'refresh': str(refresh),
         }, status=status.HTTP_201_CREATED)
 
+
 class LoginView(APIView):
-    """User login with enhanced error handling"""
+    """User login with lifecycle state validation and offline grace period"""
     permission_classes = [AllowAny]
     
     def post(self, request):
@@ -74,6 +94,7 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
+        # Check account state
         if user.account_state == User.AccountState.SUSPENDED:
             logger.warning(f"Suspended account login attempt: {email}")
             return Response(
@@ -81,14 +102,26 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # Check offline grace period expiration
+        if user.offline_grace_expires and timezone.now() > user.offline_grace_expires:
+            user.account_state = User.AccountState.SUSPENDED
+            user.save(update_fields=['account_state'])
+            logger.warning(f"Account suspended due to grace period expiration: {email}")
+            return Response(
+                {'detail': 'Your offline grace period has expired. Please contact support.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Update sync timestamp and extend grace period
         user.last_sync = timezone.now()
-        user.save(update_fields=['last_sync'])
+        user.offline_grace_expires = timezone.now() + timedelta(days=7)
+        user.save(update_fields=['last_sync', 'offline_grace_expires'])
         
         # Create session record
         UserSession.objects.create(
             user=user,
             session_key=str(RefreshToken.for_user(user)),
-            device_info=request.META.get('HTTP_USER_AGENT', 'Unknown'),
+            device_name=request.META.get('HTTP_USER_AGENT', 'Unknown'),
             ip_address=self.get_client_ip(request)
         )
         
@@ -96,10 +129,28 @@ class LoginView(APIView):
         
         logger.info(f"User logged in: {email} (state: {user.account_state})")
         
+        # Create audit log
+        try:
+            AuditLog.objects.create(
+                user=user,
+                action='user_login',
+                resource_type='user',
+                resource_id=user.id,
+                details={
+                    'ip_address': self.get_client_ip(request),
+                    'device': request.META.get('HTTP_USER_AGENT', 'Unknown')
+                },
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
+            )
+        except Exception as e:
+            logger.error(f"Failed to create audit log: {e}")
+        
         return Response({
             'user': UserSerializer(user, context={'request': request}).data,
             'access': str(refresh.access_token),
             'refresh': str(refresh),
+            'offline_grace_expires': user.offline_grace_expires,
         })
     
     def get_client_ip(self, request):
@@ -128,6 +179,21 @@ class LogoutView(APIView):
                 ).update(is_active=False)
                 
                 logger.info(f"User logged out: {request.user.email}")
+                
+                # Create audit log
+                try:
+                    AuditLog.objects.create(
+                        user=request.user,
+                        action='user_logout',
+                        resource_type='user',
+                        resource_id=request.user.id,
+                        details={'timestamp': timezone.now().isoformat()},
+                        ip_address=getattr(request, 'audit_ip', None),
+                        user_agent=getattr(request, 'audit_user_agent', '')
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create audit log: {e}")
+            
             return Response({'message': 'Logout successful'})
         except TokenError as e:
             logger.error(f"Token blacklist error: {str(e)}")
@@ -172,10 +238,26 @@ class UpdateProfileView(generics.UpdateAPIView):
         
         logger.info(f"Profile updated: {request.user.email}")
         
+        # Create audit log
+        try:
+            AuditLog.objects.create(
+                user=request.user,
+                action='profile_updated',
+                resource_type='profile',
+                resource_id=instance.id,
+                details={'fields_updated': list(request.data.keys())},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
+            )
+        except Exception as e:
+            logger.error(f"Failed to create audit log: {e}")
+        
         return Response({
             'user': UserSerializer(request.user, context={'request': request}).data,
             'profile': ProfileSerializer(instance).data
         })
+
+
 
 class PasswordResetRequestView(APIView):
     """Request password reset"""
@@ -228,9 +310,6 @@ class PasswordResetRequestView(APIView):
             })
 
 class PasswordResetConfirmView(APIView):
-    """Confirm password reset"""
-    permission_classes = [AllowAny]
-    
     def post(self, request):
         uid = request.data.get('uid')
         token = request.data.get('token')
@@ -250,12 +329,28 @@ class PasswordResetConfirmView(APIView):
                 user.set_password(new_password)
                 user.save()
                 
-                logger.info(f"Password reset completed for: {user.email}")
+                logger.info(f"Password reset successful for: {user.email}")
+                
+                # FIXED: Add audit log
+                try:
+                    AuditLog.log_action(
+                        user=user,
+                        action='password_reset',
+                        category='auth',
+                        resource_type='user',
+                        resource_id=user.id,
+                        details={'timestamp': timezone.now().isoformat()},
+                        ip_address=getattr(request, 'audit_ip', None),
+                        user_agent=getattr(request, 'audit_user_agent', '')
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create audit log: {e}")
+                
                 return Response({'message': 'Password reset successful'})
             else:
-                logger.warning(f"Invalid/expired token for password reset: {user.email}")
+                logger.warning(f"Invalid password reset token for: {user.email}")
                 return Response(
-                    {'error': 'Invalid or expired token'},
+                    {'error': 'Invalid or expired reset link'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
@@ -266,41 +361,40 @@ class PasswordResetConfirmView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+
 class CompleteOnboardingView(APIView):
-    """Complete user onboarding - Updates profile and sets account state to ACTIVE"""
+    """Complete user onboarding - Transitions REGISTERED -> ACTIVE"""
     permission_classes = [IsAuthenticated]
     
+    @transaction.atomic
     def post(self, request):
         user = request.user
         
-        if user.account_state == User.AccountState.ACTIVE:
-            logger.info(f"User already onboarded: {user.email}")
-            return Response({
-                'message': 'Onboarding already completed',
-                'user': UserSerializer(user, context={'request': request}).data,
-                'profile': ProfileSerializer(user.profile).data
-            })
-        
-        if user.account_state == User.AccountState.SUSPENDED:
-            logger.warning(f"Suspended user attempted onboarding: {user.email}")
+        # Only allow onboarding from REGISTERED state
+        if user.account_state != User.AccountState.REGISTERED:
             return Response(
-                {'error': 'Account is suspended'},
-                status=status.HTTP_403_FORBIDDEN
+                {'error': f'Onboarding not allowed in {user.account_state} state'},
+                status=status.HTTP_400_BAD_REQUEST
             )
         
-        serializer = OnboardingSerializer(data=request.data)
+        data = request.data
         
-        if not serializer.is_valid():
-            logger.warning(f"Onboarding validation failed for {user.email}: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Validate required fields
+        required_fields = ['first_name', 'last_name', 'organization', 'job_title', 'location']
+        for field in required_fields:
+            if not data.get(field):
+                return Response(
+                    {'error': f'{field} is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
-        data = serializer.validated_data
-        
+        # Update user
         user.first_name = data['first_name']
         user.last_name = data['last_name']
         user.account_state = User.AccountState.ACTIVE
         user.save()
         
+        # Update or create profile
         profile, created = Profile.objects.get_or_create(user=user)
         profile.bio = data.get('bio', '')
         profile.organization = data['organization']
@@ -308,6 +402,7 @@ class CompleteOnboardingView(APIView):
         profile.location = data['location']
         profile.save()
         
+        # Create audit log
         try:
             AuditLog.objects.create(
                 user=user,
@@ -318,20 +413,23 @@ class CompleteOnboardingView(APIView):
                     'organization': profile.organization,
                     'job_title': profile.job_title,
                     'location': profile.location,
-                }
+                    'transition': 'REGISTERED -> ACTIVE'
+                },
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
             )
         except Exception as e:
             logger.error(f"Failed to create audit log: {e}")
         
+        # Refresh user data
         user.refresh_from_db()
         
-        logger.info(f"Onboarding completed: {user.email}")
+        logger.info(f"Onboarding completed: {user.email} -> ACTIVE")
         
         return Response({
             'message': 'Onboarding completed successfully',
-            'user': UserSerializer(user, context={'request': request}).data,
-            'profile': ProfileSerializer(profile).data
-        })
+            'user': UserSerializer(user, context={'request': request}).data
+        }, status=status.HTTP_200_OK)
 
 class ChangePasswordView(APIView):
     """Change user password"""
@@ -370,7 +468,9 @@ class ChangePasswordView(APIView):
                 action='password_changed',
                 resource_type='user',
                 resource_id=user.id,
-                details={'timestamp': timezone.now().isoformat()}
+                details={'timestamp': timezone.now().isoformat(), 'sessions_invalidated': True},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
             )
         except Exception as e:
             logger.error(f"Failed to create audit log: {e}")
@@ -378,6 +478,7 @@ class ChangePasswordView(APIView):
         return Response({
             'message': 'Password changed successfully'
         })
+
 
 class SecuritySettingsView(APIView):
     """Update security settings"""
@@ -414,8 +515,6 @@ class SecuritySettingsView(APIView):
             'show_active_status': user.show_active_status
         })
 
-# ...existing code...
-
 class AccountStatsView(APIView):
     """Get account statistics"""
     permission_classes = [IsAuthenticated]
@@ -446,7 +545,6 @@ class AccountStatsView(APIView):
             'last_login': user.last_sync
         })
 
-# ...existing code...
 
 class ExportAccountDataView(APIView):
     """Export user account data"""
@@ -493,8 +591,6 @@ class ExportAccountDataView(APIView):
         logger.info(f"Account data exported for: {user.email}")
         
         return response
-
-# ...existing code...
 
 class ActiveSessionsView(APIView):
     """Get active user sessions"""
@@ -552,7 +648,9 @@ class ClearLocalCacheView(APIView):
                 action='cache_cleared',
                 resource_type='user',
                 resource_id=request.user.id,
-                details={'timestamp': timezone.now().isoformat()}
+                details={'timestamp': timezone.now().isoformat()},
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
             )
         except Exception as e:
             logger.error(f"Failed to create audit log: {e}")
@@ -594,7 +692,9 @@ class DeleteAccountView(APIView):
                 details={
                     'timestamp': timezone.now().isoformat(),
                     'email': user.email
-                }
+                },
+                ip_address=getattr(request, 'audit_ip', None),
+                user_agent=getattr(request, 'audit_user_agent', '')
             )
         except Exception as e:
             logger.error(f"Failed to create audit log: {e}")
@@ -604,7 +704,6 @@ class DeleteAccountView(APIView):
         
         return Response({'message': 'Account deleted successfully'})
 
-# Notification views
 class NotificationsView(APIView):
     """Get user notifications"""
     permission_classes = [IsAuthenticated]
@@ -653,6 +752,78 @@ class MarkAllNotificationsReadView(APIView):
         
         return Response({'message': 'All notifications marked as read'})
 
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    """Health check endpoint for offline mode detection - coordination layer only"""
+    try:
+        # Check database connection
+        connection.ensure_connection()
+        
+        # Check if service is in maintenance mode
+        maintenance_mode = getattr(settings, 'MAINTENANCE_MODE', False)
+        
+        response_data = {
+            'status': 'healthy',
+            'service': 'novem-coordination',
+            'timestamp': timezone.now().isoformat(),
+            'database': 'connected',
+            'maintenance_mode': maintenance_mode
+        }
+        
+        # If authenticated, include user-specific sync info
+        if request.user.is_authenticated:
+            response_data['user_sync'] = {
+                'last_sync': request.user.last_sync.isoformat() if request.user.last_sync else None,
+                'grace_expires': request.user.offline_grace_expires.isoformat() if request.user.offline_grace_expires else None,
+                'account_state': request.user.account_state
+            }
+        
+        return Response(response_data)
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return Response({
+            'status': 'unhealthy',
+            'service': 'novem-coordination',
+            'error': str(e),
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sync_metadata(request):
+    """Sync lightweight metadata from desktop client"""
+    try:
+        sync_data = request.data
+        user = request.user
+        
+        # Update last sync timestamp
+        user.last_sync = timezone.now()
+        user.offline_grace_expires = timezone.now() + timedelta(days=7)
+        user.save(update_fields=['last_sync', 'offline_grace_expires'])
+        
+        # Process sync queue (project metadata, published artifacts, etc.)
+        # This will be expanded as we build projects/workspaces
+        
+        logger.info(f"Metadata sync completed for: {user.email}")
+        
+        return Response({
+            'status': 'synced',
+            'timestamp': timezone.now().isoformat(),
+            'next_sync_recommended': (timezone.now() + timedelta(hours=1)).isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Sync failed for {request.user.email}: {str(e)}")
+        return Response({
+            'error': 'Sync failed',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_profile(request):
@@ -660,17 +831,23 @@ def get_profile(request):
     return Response(UserSerializer(request.user, context={'request': request}).data)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
-def health_check(request):
-    """Simple health check endpoint for connectivity testing"""
-    return Response({
-        'status': 'ok',
-        'timestamp': timezone.now().isoformat(),
-        'service': 'NOVEM Backend API'
-    }, status=status.HTTP_200_OK)
-
-@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
-    """Get current authenticated user"""
-    return Response(UserSerializer(request.user, context={'request': request}).data)
+    """Get current authenticated user with lifecycle info"""
+    user_data = UserSerializer(request.user, context={'request': request}).data
+    user_data['offline_grace_expires'] = request.user.offline_grace_expires
+    user_data['last_sync'] = request.user.last_sync
+    return Response(user_data)
+
+
+
+
+
+
+
+
+
+
+
+
+

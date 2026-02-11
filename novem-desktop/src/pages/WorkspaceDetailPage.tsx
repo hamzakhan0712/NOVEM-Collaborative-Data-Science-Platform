@@ -8,7 +8,6 @@ import {
   Row,
   Col,
   Tag,
-  message,
   Statistic,
   Dropdown,
   MenuProps,
@@ -35,7 +34,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import MainLayout from '../components/layout/MainLayout';
 import { backendAPI } from '../services/api';
 import { colors } from '../theme/config';
-
+import { Alert } from 'antd';
+import { WifiOutlined } from '@ant-design/icons';
+import { storageManager } from '../services/offline';
 // Import workspace components
 import WorkspaceOverviewTab from '../components/workspaces/WorkspaceOverviewTab';
 import WorkspaceProjectsTab from '../components/workspaces/WorkspaceProjectsTab';
@@ -52,22 +53,66 @@ const WorkspaceDetailPage: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [offlineMode, setOfflineMode] = useState(false);
   const { theme } = useTheme();
   const navigate = useNavigate();
 
   const isDark = theme === 'dark';
 
   useEffect(() => {
+    const checkOfflineMode = async () => {
+      const isOffline = !navigator.onLine;
+      setOfflineMode(isOffline);
+    };
+    
+    checkOfflineMode();
     loadWorkspace();
     loadProjects();
   }, [id]);
 
   const loadWorkspace = async () => {
+    setLoading(true);
     try {
-      const data = await backendAPI.getWorkspace(Number(id));
-      setWorkspace(data);
+      console.log('🏢 [WorkspaceDetail] Loading workspace:', id, { offlineMode });
+      
+      // Always try to load from cache first
+      const cached = await storageManager.getLocalWorkspaces();
+      const cachedWorkspace = cached.find(w => w.id === Number(id));
+      
+      if (cachedWorkspace) {
+        console.log('✅ [WorkspaceDetail] Found cached workspace');
+        setWorkspace(cachedWorkspace);
+        setLoading(false);
+      }
+
+      // If online, fetch fresh data in background
+      if (!offlineMode) {
+        console.log('🌐 [WorkspaceDetail] Fetching fresh data from API...');
+        try {
+          const data = await backendAPI.getWorkspace(Number(id));
+          console.log('✅ [WorkspaceDetail] Received fresh workspace data');
+          setWorkspace(data);
+          
+          // Update cache
+          await storageManager.syncWorkspaceState(data);
+        } catch (apiError: any) {
+          console.warn('⚠️ [WorkspaceDetail] API fetch failed:', apiError);
+          
+          // If we don't have cached data, navigate back
+          if (!cachedWorkspace) {
+            navigate('/workspaces');
+          }
+        }
+      } else {
+        console.log('📴 [WorkspaceDetail] Offline mode - using cached data only');
+        
+        // If no cached data in offline mode, navigate back
+        if (!cachedWorkspace) {
+          navigate('/workspaces');
+        }
+      }
     } catch (error) {
-      message.error('Failed to load workspace');
+      console.error('❌ [WorkspaceDetail] Load failed:', error);
       navigate('/workspaces');
     } finally {
       setLoading(false);
@@ -247,6 +292,19 @@ const WorkspaceDetailPage: React.FC = () => {
           <Breadcrumb.Item>{workspace.name}</Breadcrumb.Item>
         </Breadcrumb>
 
+       
+        {offlineMode && (
+          <Alert
+            message="Offline Mode"
+            description="You're viewing cached workspace data. Some features are limited while offline."
+            type="warning"
+            icon={<WifiOutlined />}
+            showIcon
+            closable
+            style={{ marginBottom: '24px', borderRadius: '8px' }}
+          />
+        )}
+
         {/* Header Section - Match ProjectDetailPage Style */}
         <div
           style={{
@@ -258,7 +316,7 @@ const WorkspaceDetailPage: React.FC = () => {
             gap: '16px',
           }}
         >
-          <Space direction="vertical" size="small">
+          <Space orientation="vertical" size="small">
             <Space align="center">
               {avatarUrl ? (
   <img
@@ -333,7 +391,7 @@ const WorkspaceDetailPage: React.FC = () => {
         {/* Stats Bar - Match ProjectDetailPage */}
         <Row gutter={16} style={{ marginBottom: '24px' }}>
           <Col span={6}>
-            <Card bordered={false}>
+            <Card variant="borderless">
               <Statistic
                 title="Projects"
                 value={workspace.project_count || 0}
@@ -342,7 +400,7 @@ const WorkspaceDetailPage: React.FC = () => {
             </Card>
           </Col>
           <Col span={6}>
-            <Card bordered={false}>
+            <Card variant="borderless">
               <Statistic
                 title="Team Members"
                 value={workspace.member_count || 0}
@@ -351,7 +409,7 @@ const WorkspaceDetailPage: React.FC = () => {
             </Card>
           </Col>
           <Col span={6}>
-            <Card bordered={false}>
+            <Card variant="borderless">
               <Statistic
                 title="Active Projects"
                 value={activeProjects}
@@ -361,7 +419,7 @@ const WorkspaceDetailPage: React.FC = () => {
             </Card>
           </Col>
           <Col span={6}>
-            <Card bordered={false}>
+            <Card variant="borderless">
               <Statistic
                 title="Total Datasets"
                 value={projects.reduce((sum, p) => sum + (p.dataset_count || 0), 0)}
@@ -373,7 +431,7 @@ const WorkspaceDetailPage: React.FC = () => {
 
         {/* Content Tabs - Match ProjectDetailPage */}
         <Card
-          bordered={false}
+          variant="borderless"
           style={{
             backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
             border: `1px solid ${isDark ? colors.borderDark : colors.border}`,

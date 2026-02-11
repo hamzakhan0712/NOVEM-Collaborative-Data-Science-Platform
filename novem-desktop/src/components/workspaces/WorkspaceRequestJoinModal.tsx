@@ -89,7 +89,7 @@ const WorkspaceRequestJoinModal: React.FC<WorkspaceRequestJoinModalProps> = ({
         },
       }}
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <div>
           <Paragraph
             style={{

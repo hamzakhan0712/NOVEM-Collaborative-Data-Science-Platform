@@ -11,7 +11,7 @@ const DataSection: React.FC = () => {
   const isDark = theme === 'dark';
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px' }}>
           Data & Privacy
@@ -22,13 +22,13 @@ const DataSection: React.FC = () => {
       </div>
 
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
           <div>
             <Text strong style={{ fontSize: '15px' }}>
               Data Management
@@ -46,7 +46,7 @@ const DataSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Download Your Data</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Export all your account data in JSON format
@@ -66,7 +66,7 @@ const DataSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Clear Cache</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Clear locally stored temporary data
@@ -94,7 +94,7 @@ const DataSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Profile Visibility</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Control who can view your profile information
@@ -118,7 +118,7 @@ const DataSection: React.FC = () => {
               backgroundColor: isDark ? colors.backgroundTertiaryDark : colors.backgroundTertiary,
             }}
           >
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text strong style={{ fontSize: '14px' }}>Activity Status</Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
                 Show when you're currently online

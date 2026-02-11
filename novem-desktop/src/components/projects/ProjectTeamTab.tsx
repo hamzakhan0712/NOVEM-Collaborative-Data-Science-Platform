@@ -405,7 +405,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ project, onUpdate }) =>
       </div>
 
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.surfaceDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
@@ -569,7 +569,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ project, onUpdate }) =>
           >
             <Select>
               <Select.Option value="viewer">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Viewer</Text>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
                     Can view data only
@@ -577,7 +577,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ project, onUpdate }) =>
                 </Space>
               </Select.Option>
               <Select.Option value="analyst">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Analyst</Text>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
                     Can view data and run analyses
@@ -585,7 +585,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ project, onUpdate }) =>
                 </Space>
               </Select.Option>
               <Select.Option value="contributor">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Contributor</Text>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
                     Can publish results and manage connectors
@@ -593,7 +593,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ project, onUpdate }) =>
                 </Space>
               </Select.Option>
               <Select.Option value="lead">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>Lead</Text>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
                     Full permissions including inviting members
@@ -644,7 +644,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ project, onUpdate }) =>
         okText="Approve & Add to Project"
       >
         {selectedRequest && (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
             <div>
               <Text strong>
                 {selectedRequest.user.first_name} {selectedRequest.user.last_name}

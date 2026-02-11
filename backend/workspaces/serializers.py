@@ -158,8 +158,8 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
 class WorkspaceInvitationSerializer(serializers.ModelSerializer):
-    inviter = UserSerializer(read_only=True)  # ✅ Add this
-    invitee = UserSerializer(read_only=True)  # ✅ Add this if not already present
+    inviter = UserSerializer(read_only=True)  # Successfully Add this
+    invitee = UserSerializer(read_only=True)  # Successfully Add this if not already present
     workspace_name = serializers.CharField(source='workspace.name', read_only=True)
     
     class Meta:

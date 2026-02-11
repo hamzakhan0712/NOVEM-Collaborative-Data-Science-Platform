@@ -108,7 +108,7 @@ const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({ project }) => {
                   dot: getActivityIcon(activity.type),
                   color: getActivityColor(activity.type),
                   children: (
-                    <Space direction="vertical" size={0}>
+                    <Space orientation="vertical" size={0}>
                       <Text strong>
                         {activity.user.first_name} {activity.user.last_name}
                       </Text>
@@ -148,7 +148,7 @@ const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({ project }) => {
 
         <Col span={8}>
           <Card title="Project Information" loading={loading}>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
               <div>
                 <Text type="secondary">Created</Text>
                 <br />
@@ -211,7 +211,7 @@ const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({ project }) => {
             style={{ marginTop: '16px' }}
             loading={loading}
           >
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="small" style={{ width: '100%' }}>
               <PermissionItem
                 label="View Data"
                 granted={project.current_user_permissions?.can_view_data}

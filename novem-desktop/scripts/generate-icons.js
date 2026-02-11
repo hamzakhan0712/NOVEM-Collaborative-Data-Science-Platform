@@ -33,10 +33,10 @@ async function generateIcons() {
         })
         .png()
         .toFile(join(ICONS_DIR, name));
-      console.log(`✓ Generated ${name}`);
+      console.log(`Generated ${name}`);
     }
 
-    console.log('✓ Icon generation complete!');
+    console.log('Icon generation complete!');
   } catch (error) {
     console.error('✗ Failed to generate icons:', error);
     process.exit(1);

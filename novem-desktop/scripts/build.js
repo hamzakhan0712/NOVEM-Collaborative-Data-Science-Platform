@@ -27,7 +27,7 @@ function ensureDir(dir) {
 }
 
 async function build() {
-  console.log('\n🚀 Starting NOVEM build process...\n');
+  console.log('\n Starting NOVEM build process...\n');
   
   // Step 1: Clean previous builds
   console.log('📦 Step 1: Cleaning previous builds...');
@@ -64,7 +64,7 @@ async function build() {
         const src = join(nsisDir, file);
         const dest = join(DIST_DIR, file);
         copyFileSync(src, dest);
-        console.log(`  ✓ Copied ${file}`);
+        console.log(`  Copied ${file}`);
       });
     }
     
@@ -76,7 +76,7 @@ async function build() {
         const src = join(msiDir, file);
         const dest = join(DIST_DIR, file);
         copyFileSync(src, dest);
-        console.log(`  ✓ Copied ${file}`);
+        console.log(`  Copied ${file}`);
       });
     }
   }
@@ -94,7 +94,7 @@ async function build() {
         const hashSum = createHash('sha256');
         hashSum.update(fileBuffer);
         checksums[file] = hashSum.digest('hex');
-        console.log(`  ✓ ${file}: ${checksums[file]}`);
+        console.log(`  ${file}: ${checksums[file]}`);
       }
     });
     
@@ -104,7 +104,7 @@ async function build() {
     );
   }
   
-  console.log('\n✅ Build complete!\n');
+  console.log('\n Build complete!\n');
   console.log('📦 Installers location:', DIST_DIR);
   console.log('\nNext steps:');
   console.log('  1. Test the installer on a clean Windows machine');

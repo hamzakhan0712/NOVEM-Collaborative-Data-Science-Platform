@@ -6,35 +6,31 @@ from django.contrib.auth.password_validation import validate_password
 User = get_user_model()
 
 class ProfileSerializer(serializers.ModelSerializer):
-    """Profile serializer without user details to avoid circular reference"""
+    """Profile serializer with all fields"""
     
     class Meta:
         model = Profile
         fields = [
-            'bio', 'organization', 'job_title', 'location', 
-            'website', 'theme',
+            'bio', 'organization', 'job_title', 'location',
             'email_notifications_enabled',
-            'email_project_invitations',
-            'email_project_updates',
-            'email_project_comments',
-            'email_workspace_invitations',
-            'email_workspace_activity'
         ]
+        extra_kwargs = {
+            'bio': {'required': False},
+        }
 
 class UserSerializer(serializers.ModelSerializer):
-    is_onboarding_complete = serializers.SerializerMethodField()
-    profile = serializers.SerializerMethodField()
-    profile_picture_url = serializers.SerializerMethodField()
+    """User serializer with profile data"""
+    profile = ProfileSerializer(read_only=True)
     
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'username', 'first_name', 'last_name', 
-            'account_state', 'profile_picture', 'profile_picture_url',
-            'profile_visibility', 'show_active_status',
-            'is_onboarding_complete', 'created_at', 'profile'
+            'id', 'email', 'username', 'first_name', 'last_name',
+            'account_state',
+            'profile_picture', 'created_at', 'last_login',
+            'profile'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'last_login']
     
     def get_is_onboarding_complete(self, obj):
         """Check if user has completed onboarding"""
@@ -205,7 +201,7 @@ class UserSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSession
         fields = [
-            'id', 'session_key', 'device_info', 'ip_address',
+            'id', 'session_key', 'device_name', 'ip_address',
             'location', 'created_at', 'last_activity', 'is_active'
         ]
         read_only_fields = fields

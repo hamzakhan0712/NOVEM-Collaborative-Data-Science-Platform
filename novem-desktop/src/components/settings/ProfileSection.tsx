@@ -30,7 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { colors } from '../../theme/config';
 import { backendAPI } from '../../services/api';
-import type { UploadFile, RcFile } from 'antd/es/upload/interface';
+import type { RcFile } from 'antd/es/upload/interface';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -41,7 +41,7 @@ interface ProfileSectionProps {
 }
 
 const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, offlineMode } = useAuth();
   const { theme } = useTheme();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -66,6 +66,17 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
   }, [profileData, user, form]);
 
   const handleProfileUpdate = async (values: any) => {
+    if (offlineMode) {
+      message.warning('Cannot update profile while offline. Changes will be saved locally.');
+      // Save to local cache for when we're back online
+      const cachedProfile = JSON.parse(localStorage.getItem('profile_cache') || '{}');
+      cachedProfile.user = { ...cachedProfile.user, ...values };
+      localStorage.setItem('profile_cache', JSON.stringify(cachedProfile));
+      localStorage.setItem('pending_profile_update', JSON.stringify(values));
+      setHasUnsavedChanges(false);
+      return;
+    }
+
     try {
       setLoading(true);
       await backendAPI.updateProfile(values);
@@ -74,6 +85,12 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
         first_name: values.first_name,
         last_name: values.last_name,
       });
+
+      // Update cache
+      const cachedProfile = JSON.parse(localStorage.getItem('profile_cache') || '{}');
+      cachedProfile.user = { ...cachedProfile.user, ...values };
+      localStorage.setItem('profile_cache', JSON.stringify(cachedProfile));
+      localStorage.removeItem('pending_profile_update');
 
       setHasUnsavedChanges(false);
       message.success('Profile updated successfully');
@@ -103,13 +120,22 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
   };
 
   const handlePhotoUpload = async (file: RcFile) => {
+    if (offlineMode) {
+      message.warning('Cannot upload photos while offline');
+      return false;
+    }
+
     try {
       setUploadingPhoto(true);
       const response = await backendAPI.uploadProfilePhoto(file);
       
       updateUser({
         profile_picture: response.user.profile_picture,
+        profile_picture_url: response.user.profile_picture_url,
       });
+
+      // Update cache
+      localStorage.setItem('user_cache', JSON.stringify(response.user));
       
       message.success('Profile photo updated successfully');
       onUpdate();
@@ -120,10 +146,15 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
       setUploadingPhoto(false);
     }
     
-    return false; // Prevent default upload behavior
+    return false;
   };
 
   const handlePhotoRemove = () => {
+    if (offlineMode) {
+      message.warning('Cannot remove photos while offline');
+      return;
+    }
+
     Modal.confirm({
       title: 'Remove Profile Photo',
       content: 'Are you sure you want to remove your profile photo?',
@@ -136,7 +167,14 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
           
           updateUser({
             profile_picture: undefined,
+            profile_picture_url: undefined,
           });
+
+          // Update cache
+          const cachedUser = JSON.parse(localStorage.getItem('user_cache') || '{}');
+          delete cachedUser.profile_picture;
+          delete cachedUser.profile_picture_url;
+          localStorage.setItem('user_cache', JSON.stringify(cachedUser));
           
           message.success('Profile photo removed');
           onUpdate();
@@ -149,7 +187,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
   };
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ margin: 0, marginBottom: '8px' }}>
           Profile Information
@@ -161,18 +199,18 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
 
       {/* Profile Picture */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
         }}
       >
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             <Avatar
               size={96}
               icon={uploadingPhoto ? <LoadingOutlined /> : <UserOutlined />}
-              src={user?.profile_picture}
+              src={user?.profile_picture_url || user?.profile_picture}
               style={{
                 backgroundColor: colors.logoCyan,
                 fontSize: '36px',
@@ -185,27 +223,29 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
               </Text>
               <Text type="secondary" style={{ display: 'block', fontSize: '13px', marginBottom: '16px' }}>
                 JPG, PNG or GIF. Max size 2MB. Recommended 400x400px.
+                {offlineMode && ' (Unavailable offline)'}
               </Text>
               <Space size={12}>
                 <Upload
                   showUploadList={false}
                   beforeUpload={beforeUpload}
                   customRequest={({ file }) => handlePhotoUpload(file as RcFile)}
-                  disabled={uploadingPhoto}
+                  disabled={uploadingPhoto || offlineMode}
                 >
                   <Button 
                     icon={uploadingPhoto ? <LoadingOutlined /> : <CameraOutlined />}
                     loading={uploadingPhoto}
+                    disabled={offlineMode}
                   >
                     Upload New
                   </Button>
                 </Upload>
-                {user?.profile_picture && (
+                {(user?.profile_picture || user?.profile_picture_url) && (
                   <Button 
                     danger 
                     icon={<DeleteOutlined />}
                     onClick={handlePhotoRemove}
-                    disabled={uploadingPhoto}
+                    disabled={uploadingPhoto || offlineMode}
                   >
                     Remove
                   </Button>
@@ -218,7 +258,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
 
       {/* Basic Information */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           backgroundColor: isDark ? colors.backgroundPrimaryDark : colors.surfaceLight,
           border: `1px solid ${isDark ? colors.borderDark : colors.border}`,
@@ -229,10 +269,16 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
           layout="vertical"
           onFinish={handleProfileUpdate}
           onValuesChange={() => setHasUnsavedChanges(true)}
+          disabled={offlineMode}
         >
-          <Space direction="vertical" size={24} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={24} style={{ width: '100%' }}>
             <Text strong style={{ fontSize: '15px' }}>
               Personal Information
+              {offlineMode && (
+                <Text type="secondary" style={{ fontSize: '13px', marginLeft: '8px' }}>
+                  (Editing disabled offline)
+                </Text>
+              )}
             </Text>
 
             <Row gutter={16}>
@@ -349,7 +395,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
                   form.resetFields();
                   setHasUnsavedChanges(false);
                 }}
-                disabled={!hasUnsavedChanges}
+                disabled={!hasUnsavedChanges || offlineMode}
               >
                 Discard Changes
               </Button>
@@ -358,9 +404,9 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ profileData, onUpdate }
                 htmlType="submit"
                 icon={<SaveOutlined />}
                 loading={loading}
-                disabled={!hasUnsavedChanges}
+                disabled={!hasUnsavedChanges || offlineMode}
               >
-                Save Changes
+                {offlineMode ? 'Offline' : 'Save Changes'}
               </Button>
             </div>
           </Space>
