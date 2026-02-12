@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "NOVEM",
+    "version": "0.1.0",
+    "description": "Privacy-first data science platform",
+    "author": "NOVEM Team"
+  },
+  "backend": {
+    "url": "http://127.0.0.1:8000",
+    "computeEngine": "http://127.0.0.1:8001"
+  },
+  "build": {
+    "timestamp": "2026-02-11T15:46:54.438Z",
+    "environment": "production"
+  }
+}

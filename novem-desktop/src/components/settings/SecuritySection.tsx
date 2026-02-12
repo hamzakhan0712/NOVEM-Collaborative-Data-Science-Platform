@@ -50,31 +50,31 @@ const SecuritySection: React.FC = () => {
   const loadSecuritySettings = async () => {
     try {
       // Always load from cache first
-      console.log('💾 [SecuritySection] Loading from cache...');
+      console.log('[SecuritySection] Loading from cache...');
       const cached = localStorage.getItem('security_settings');
       
       if (cached) {
         const parsed = JSON.parse(cached);
-        console.log('✅ [SecuritySection] Found cached security settings');
+        console.log('[SecuritySection] Found cached security settings');
         setSecuritySettings(parsed);
       }
 
       // If online, fetch fresh data
       if (!offlineMode) {
-        console.log('🌐 [SecuritySection] Fetching fresh data from API...');
+        console.log('[SecuritySection] Fetching fresh data from API...');
         try {
           const data = await backendAPI.getSecuritySettings();
-          console.log('✅ [SecuritySection] Received security settings');
+          console.log('[SecuritySection] Received security settings');
           setSecuritySettings(data);
           localStorage.setItem('security_settings', JSON.stringify(data));
         } catch (apiError: any) {
-          console.warn('⚠️ [SecuritySection] API fetch failed, using cached data:', apiError);
+          console.warn('[SecuritySection] API fetch failed, using cached data:', apiError);
         }
       } else {
         console.log('📴 [SecuritySection] Offline mode - using cached data only');
       }
     } catch (error) {
-      console.error('❌ [SecuritySection] Failed to load security settings:', error);
+      console.error('[SecuritySection] Failed to load security settings:', error);
     }
   };
 

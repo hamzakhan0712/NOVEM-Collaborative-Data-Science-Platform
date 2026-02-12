@@ -33,7 +33,7 @@ class SystemMonitor:
         self._monitoring = True
         self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self._monitor_thread.start()
-        logger.info("✅ System monitor started")
+        logger.info("System monitor started")
         
     def stop(self):
         """Stop monitoring system resources"""
@@ -44,7 +44,7 @@ class SystemMonitor:
         self._monitoring = False
         if self._monitor_thread:
             self._monitor_thread.join(timeout=2)
-        logger.info("✅ System monitor stopped")
+        logger.info("System monitor stopped")
         
     def _monitor_loop(self):
         """Main monitoring loop"""

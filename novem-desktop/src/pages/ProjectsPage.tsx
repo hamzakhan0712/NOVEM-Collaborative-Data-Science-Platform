@@ -55,14 +55,14 @@ const ProjectsPage: React.FC = () => {
   const isDark = theme === 'dark';
 
   useEffect(() => {
-    console.log('📊 [ProjectsPage] Loading projects...', { offlineMode });
+    console.log('[ProjectsPage] Loading projects...', { offlineMode });
     loadProjects();
   }, [offlineMode]);
 
   // Ensure projects is always an array before filtering
   const projectsArray = Array.isArray(projects) ? projects : [];
   
-  console.log('📊 [ProjectsPage] Projects state:', {
+  console.log('[ProjectsPage] Projects state:', {
     total: projectsArray.length,
     offlineMode,
     loading
@@ -75,7 +75,7 @@ const ProjectsPage: React.FC = () => {
     return isOwner || isMember;
   });
 
-  console.log('📊 [ProjectsPage] Filtered projects:', {
+  console.log('[ProjectsPage] Filtered projects:', {
     myProjects: myProjects.length,
     userId: user?.id
   });

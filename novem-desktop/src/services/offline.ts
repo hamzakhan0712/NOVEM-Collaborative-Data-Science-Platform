@@ -462,7 +462,7 @@ class OfflineManager {
         offlineStartedAt: null,
       });
 
-      console.log('🌐 Back online - grace period reset');
+      console.log('Back online - grace period reset');
     }
   }
 

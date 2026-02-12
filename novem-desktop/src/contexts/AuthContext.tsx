@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Already in offline mode, check if still within grace period
           console.log('⏰ Checking existing grace period...');
           if (offlineManager.isWithinGracePeriod()) {
-            console.log('✅ Within grace period');
+            console.log('Within grace period');
             const cachedUser = localStorage.getItem('user_cache');
             if (cachedUser) {
               const userData = JSON.parse(cachedUser);
@@ -124,14 +124,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               });
             }
           } else {
-            console.log('❌ Grace period expired');
+            console.log('Grace period expired');
             handleSessionExpired();
             message.error('Your offline access has expired. Please reconnect to continue.');
           }
         } else {
           // First time going offline - DON'T start grace period yet
           // Just try to use cached data temporarily
-          console.log('⚠️ First disconnect - using cached data without starting grace period');
+          console.log('First disconnect - using cached data without starting grace period');
           const cachedUser = localStorage.getItem('user_cache');
           if (cachedUser) {
             const userData = JSON.parse(cachedUser);
@@ -153,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Backend reachable - proceed with normal auth
-      console.log('🌐 Backend reachable');
+      console.log('Backend reachable');
       setIsOnline(true);
       
       if (!backendAPI.isTokenValid()) {
@@ -161,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await backendAPI.performTokenRefresh();
         } catch (error) {
-          console.error('❌ Token refresh failed:', error);
+          console.error('Token refresh failed:', error);
           handleSessionExpired();
           setLoading(false);
           return;
@@ -171,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log('👤 Fetching user profile...');
         const userData = await backendAPI.getProfile();
-        console.log('✅ Profile fetched successfully');
+        console.log('Profile fetched successfully');
         
         setUser(userData);
         setOfflineMode(false);
@@ -193,14 +193,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         offlineManager.markAsOnline();
         
       } catch (error: any) {
-        console.error('❌ Failed to fetch user profile:', error);
+        console.error('Failed to fetch user profile:', error);
         
         // If this fails, check grace period
         const offlineState = offlineManager.getState();
         const cachedUser = localStorage.getItem('user_cache');
         
         if (offlineState.isOffline && offlineManager.isWithinGracePeriod() && cachedUser) {
-          console.log('✅ Using cached user (within grace)');
+          console.log('Using cached user (within grace)');
           setUser(JSON.parse(cachedUser));
           setOfflineMode(true);
           setIsOnline(false);
@@ -219,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
     } catch (error) {
-      console.error('❌ Init auth error:', error);
+      console.error('Init auth error:', error);
       handleSessionExpired();
     } finally {
       setLoading(false);
@@ -246,7 +246,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const wasOnline = isOnline;
       const nowOnline = await checkBackendConnectivity();
       
-      console.log(`🌐 Connectivity check:`, { wasOnline, nowOnline });
+      console.log(`Connectivity check:`, { wasOnline, nowOnline });
       
       setIsOnline(nowOnline);
       
@@ -274,7 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else if (nowOnline && !wasOnline) {
         // Just came back online
-        console.log('🌐 Connection restored');
+        console.log('Connection restored');
         offlineManager.markAsOnline();
         setOfflineMode(false);
         setGraceExpiry(null);
@@ -291,13 +291,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(userData);
           localStorage.setItem('user_cache', JSON.stringify(userData));
         } catch (error) {
-          console.error('❌ Failed to refresh user data:', error);
+          console.error('Failed to refresh user data:', error);
         }
       }
     }, 30000); // Check every 30 seconds
 
     return () => {
-      console.log('🛑 Stopping connectivity monitoring');
+      console.log('Stopping connectivity monitoring');
       clearInterval(checkInterval);
     };
   }, [user, isOnline]);

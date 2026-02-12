@@ -44,7 +44,7 @@ class DuckDBManager:
                 logger.warning(f"Could not load DuckDB extensions: {e}")
             
             self._initialized = True
-            logger.info("✅ DuckDB connected successfully")
+            logger.info("DuckDB connected successfully")
             
         except Exception as e:
             logger.error(f"Failed to connect to DuckDB: {e}", exc_info=True)
@@ -100,7 +100,7 @@ class SQLiteManager:
             self._create_tables()
             
             self._initialized = True
-            logger.info("✅ SQLite connected successfully")
+            logger.info("SQLite connected successfully")
             
         except Exception as e:
             logger.error(f"Failed to connect to SQLite: {e}", exc_info=True)

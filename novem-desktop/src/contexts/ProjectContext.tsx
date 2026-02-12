@@ -119,7 +119,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (savedProjectId && projects.length > 0 && !currentProject) {
       const project = projects.find(p => p.id === parseInt(savedProjectId));
       if (project) {
-        console.log('✅ [ProjectContext] Restored project:', project.name);
+        console.log('[ProjectContext] Restored project:', project.name);
         setCurrentProjectState(project);
       }
     }
@@ -130,23 +130,23 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     try {
       // Always load from cache first for instant display
-      console.log('💾 [ProjectContext] Loading from cache...', { workspaceId });
+      console.log('[ProjectContext] Loading from cache...', { workspaceId });
       const cached = await storageManager.getLocalProjects(workspaceId);
       
       if (cached.length > 0) {
-        console.log('✅ [ProjectContext] Found', cached.length, 'cached projects');
+        console.log('[ProjectContext] Found', cached.length, 'cached projects');
         setProjects(cached);
       }
 
       // If online, fetch fresh data in background
       if (!offlineMode) {
-        console.log('🌐 [ProjectContext] Fetching fresh data from API...', { workspaceId });
+        console.log('[ProjectContext] Fetching fresh data from API...', { workspaceId });
         try {
           const params = workspaceId !== undefined ? { workspace: workspaceId } : undefined;
           const data = await backendAPI.getProjects(params);
           
           const projectsArray = Array.isArray(data) ? data : [];
-          console.log('✅ [ProjectContext] Received', projectsArray.length, 'projects');
+          console.log('[ProjectContext] Received', projectsArray.length, 'projects');
           
           setProjects(projectsArray);
           
@@ -155,9 +155,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
             await storageManager.syncProjectState(project);
           }
           
-          console.log('✅ [ProjectContext] Synced to storage');
+          console.log('[ProjectContext] Synced to storage');
         } catch (apiError: any) {
-          console.warn('⚠️ [ProjectContext] API fetch failed, using cached data:', apiError);
+          console.warn('[ProjectContext] API fetch failed, using cached data:', apiError);
           
           // If we don't have cached data, show error
           if (cached.length === 0 && !apiError.offline) {
@@ -171,7 +171,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
     } catch (error: any) {
-      console.error('❌ [ProjectContext] Load failed:', error);
+      console.error('[ProjectContext] Load failed:', error);
       message.error('Failed to load projects');
     } finally {
       setLoading(false);
@@ -187,7 +187,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       console.log('🔄 [ProjectContext] Refreshing project:', projectId);
       const project = await backendAPI.getProject(projectId);
-      console.log('✅ [ProjectContext] Refreshed');
+      console.log('[ProjectContext] Refreshed');
       
       // Update in list
       setProjects(prev => {
@@ -203,7 +203,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Update cache
       await storageManager.syncProjectState(project);
     } catch (error: any) {
-      console.warn('⚠️ [ProjectContext] Refresh failed, keeping existing data:', error);
+      console.warn('[ProjectContext] Refresh failed, keeping existing data:', error);
     }
   };
 

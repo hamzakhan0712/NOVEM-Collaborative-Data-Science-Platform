@@ -52,9 +52,9 @@ const StatusBar: React.FC = () => {
       setIsTauriEnv(isInTauri);
       
       if (isInTauri) {
-        console.log('✅ Running in Tauri desktop environment');
+        console.log('Running in Tauri desktop environment');
       } else {
-        console.warn('⚠️ Running in browser mode - Tauri features unavailable');
+        console.warn('Running in browser mode - Tauri features unavailable');
       }
     };
 
@@ -80,7 +80,7 @@ const StatusBar: React.FC = () => {
       // Check Backend via Tauri
       try {
         const backendHealth = await tauriCommands.checkBackendHealth();
-        console.log('✅ Backend health:', backendHealth);
+        console.log('Backend health:', backendHealth);
         setServiceHealth((prev) => ({
           ...prev,
           backend: {
@@ -90,7 +90,7 @@ const StatusBar: React.FC = () => {
           },
         }));
       } catch (error) {
-        console.error('❌ Backend health check failed:', error);
+        console.error('Backend health check failed:', error);
         setServiceHealth((prev) => ({
           ...prev,
           backend: {
@@ -103,7 +103,7 @@ const StatusBar: React.FC = () => {
       // Check Compute Engine via Tauri
       try {
         const engineHealth = await tauriCommands.checkComputeEngineHealth();
-        console.log('✅ Compute engine health:', engineHealth);
+        console.log('Compute engine health:', engineHealth);
         setServiceHealth((prev) => ({
           ...prev,
           computeEngine: {
@@ -116,14 +116,14 @@ const StatusBar: React.FC = () => {
         // Get system resources if engine is online
         try {
           const resources = await tauriCommands.getSystemResources();
-          console.log('✅ System resources:', resources);
+          console.log('System resources:', resources);
           setSystemResources(resources);
         } catch (resError) {
-          console.warn('⚠️ Failed to get system resources:', resError);
+          console.warn('Failed to get system resources:', resError);
           setSystemResources(null);
         }
       } catch (error) {
-        console.error('❌ Compute engine health check failed:', error);
+        console.error('Compute engine health check failed:', error);
         setServiceHealth((prev) => ({
           ...prev,
           computeEngine: {
@@ -135,7 +135,7 @@ const StatusBar: React.FC = () => {
       }
     } else {
       // Running in Browser - use direct API calls
-      console.log('🌐 Checking services via browser API calls...');
+      console.log('Checking services via browser API calls...');
       
       try {
         const isOnline = await backendAPI.checkHealth();

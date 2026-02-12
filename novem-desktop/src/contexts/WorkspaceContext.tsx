@@ -115,13 +115,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (storedWorkspaceId) {
         const workspace = workspaces.find(w => w.id === parseInt(storedWorkspaceId));
         if (workspace) {
-          console.log('✅ [WorkspaceContext] Restored workspace:', workspace.name);
+          console.log('[WorkspaceContext] Restored workspace:', workspace.name);
           setCurrentWorkspaceState(workspace);
           return;
         }
       }
       
-      console.log('✅ [WorkspaceContext] Selected first workspace:', workspaces[0].name);
+      console.log('[WorkspaceContext] Selected first workspace:', workspaces[0].name);
       setCurrentWorkspaceState(workspaces[0]);
     }
   }, [workspaces, currentWorkspace]);
@@ -131,20 +131,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     
     try {
       // Always load from cache first for instant display
-      console.log('💾 [WorkspaceContext] Loading from cache...');
+      console.log('[WorkspaceContext] Loading from cache...');
       const cached = await storageManager.getLocalWorkspaces();
       
       if (cached.length > 0) {
-        console.log('✅ [WorkspaceContext] Found', cached.length, 'cached workspaces');
+        console.log('[WorkspaceContext] Found', cached.length, 'cached workspaces');
         setWorkspaces(cached);
       }
 
       // If online, fetch fresh data in background
       if (!offlineMode) {
-        console.log('🌐 [WorkspaceContext] Fetching fresh data from API...');
+        console.log('[WorkspaceContext] Fetching fresh data from API...');
         try {
           const data = await backendAPI.getWorkspaces();
-          console.log('✅ [WorkspaceContext] Received', data.length, 'workspaces');
+          console.log('[WorkspaceContext] Received', data.length, 'workspaces');
           
           const processedWorkspaces = data.map((w: Workspace) => ({
             ...w,
@@ -165,9 +165,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             await storageManager.syncWorkspaceState(workspace);
           }
           
-          console.log('✅ [WorkspaceContext] Synced to storage');
+          console.log('[WorkspaceContext] Synced to storage');
         } catch (apiError: any) {
-          console.warn('⚠️ [WorkspaceContext] API fetch failed, using cached data:', apiError);
+          console.warn('[WorkspaceContext] API fetch failed, using cached data:', apiError);
           
           // If we don't have cached data, show error
           if (cached.length === 0 && !apiError.offline) {
@@ -181,7 +181,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     } catch (error: any) {
-      console.error('❌ [WorkspaceContext] Load failed:', error);
+      console.error('[WorkspaceContext] Load failed:', error);
       message.error('Failed to load workspaces');
     } finally {
       setLoading(false);
@@ -281,7 +281,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       console.log('🔄 [WorkspaceContext] Refreshing:', currentWorkspace.name);
       const updated = await backendAPI.getWorkspace(currentWorkspace.id);
-      console.log('✅ [WorkspaceContext] Refreshed');
+      console.log('[WorkspaceContext] Refreshed');
       
       setCurrentWorkspaceState(updated);
       
@@ -291,7 +291,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Update cache
       await storageManager.syncWorkspaceState(updated);
     } catch (error) {
-      console.warn('⚠️ [WorkspaceContext] Refresh failed, keeping existing data:', error);
+      console.warn('[WorkspaceContext] Refresh failed, keeping existing data:', error);
     }
   };
 

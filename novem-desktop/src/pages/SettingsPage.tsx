@@ -45,16 +45,16 @@ const SettingsPage: React.FC = () => {
     
     try {
       // Always load from cache first for instant display
-      console.log('💾 [SettingsPage] Loading from cache...');
+      console.log('[SettingsPage] Loading from cache...');
       const cachedProfile = localStorage.getItem('profile_cache');
       
       if (cachedProfile) {
         const parsed = JSON.parse(cachedProfile);
-        console.log('✅ [SettingsPage] Found cached profile');
+        console.log('[SettingsPage] Found cached profile');
         setProfileData(parsed);
       } else if (user) {
         // Use user data from AuthContext as fallback
-        console.log('✅ [SettingsPage] Using user data from context');
+        console.log('[SettingsPage] Using user data from context');
         setProfileData({
           user: {
             id: user.id,
@@ -78,18 +78,18 @@ const SettingsPage: React.FC = () => {
 
       // If online, fetch fresh data in background
       if (!offlineMode) {
-        console.log('🌐 [SettingsPage] Fetching fresh data from API...');
+        console.log('[SettingsPage] Fetching fresh data from API...');
         try {
           const data = await backendAPI.getProfile();
-          console.log('✅ [SettingsPage] Received profile data');
+          console.log('[SettingsPage] Received profile data');
           
           setProfileData(data.profile);
           
           // Cache the fresh data
           localStorage.setItem('profile_cache', JSON.stringify(data.profile));
-          console.log('✅ [SettingsPage] Cached profile data');
+          console.log('[SettingsPage] Cached profile data');
         } catch (apiError: any) {
-          console.warn('⚠️ [SettingsPage] API fetch failed, using cached data:', apiError);
+          console.warn('[SettingsPage] API fetch failed, using cached data:', apiError);
           
           // If we don't have cached data, show error
           if (!cachedProfile && !apiError.offline) {
@@ -103,7 +103,7 @@ const SettingsPage: React.FC = () => {
         }
       }
     } catch (error: any) {
-      console.error('❌ [SettingsPage] Load failed:', error);
+      console.error('[SettingsPage] Load failed:', error);
       message.error('Failed to load profile data');
     } finally {
       setLoading(false);

@@ -1,75 +1,91 @@
-use tauri::command;
-use reqwest;
-use std::time::Duration;
+use tauri::State;
+use crate::{AppState, database::{Workspace, Project}};
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HealthResponse {
     pub status: String,
     pub service: Option<String>,
     pub timestamp: Option<String>,
     pub database: Option<String>,
+    pub mode: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SystemResources {
-    pub cpu_percent: f32,
-    pub memory_percent: f32,
-    pub memory_available_gb: f32,
-    pub memory_total_gb: f32,
-    pub disk_available_gb: f32,
-    pub disk_total_gb: f32,
+    pub cpu_percent: f64,
+    pub memory_percent: f64,
+    pub memory_available_gb: f64,
+    pub memory_total_gb: f64,
+    pub disk_available_gb: f64,
+    pub disk_total_gb: f64,
 }
 
-// Health check commands
-#[command]
-pub async fn check_compute_engine_health() -> Result<HealthResponse, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(3))
-        .build()
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DetailedStatus {
+    pub status: String,
+    pub service: String,
+    pub timestamp: String,
+    pub mode: String,
+    pub resources: Option<SystemResources>,
+}
+
+// ==================== ENGINE STATUS ====================
+
+#[tauri::command]
+pub async fn get_engine_status(state: State<'_, AppState>) -> Result<bool, String> {
+    let engine = state.python_engine.lock()
+        .map_err(|e| format!("Failed to lock engine: {}", e))?;
+    
+    engine.check_health()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_engine_port(state: State<'_, AppState>) -> Result<u16, String> {
+    let engine = state.python_engine.lock()
+        .map_err(|e| format!("Failed to lock engine: {}", e))?;
+    
+    Ok(engine.get_port())
+}
+
+#[tauri::command]
+pub async fn restart_engine(state: State<'_, AppState>) -> Result<bool, String> {
+    let mut engine = state.python_engine.lock()
+        .map_err(|e| format!("Failed to lock engine: {}", e))?;
+    
+    engine.restart()
         .map_err(|e| e.to_string())?;
     
-    match client.get("http://127.0.0.1:8001/health").send().await {
-        Ok(response) => {
-            if response.status().is_success() {
-                match response.json::<serde_json::Value>().await {
-                    Ok(data) => Ok(HealthResponse {
-                        status: data.get("status").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-                        service: data.get("service").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        timestamp: data.get("timestamp").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        database: data.get("duckdb_connected").and_then(|v| v.as_bool()).map(|b| if b { "connected".to_string() } else { "disconnected".to_string() }),
-                    }),
-                    Err(e) => Err(format!("Failed to parse response: {}", e)),
-                }
-            } else {
-                Err(format!("Compute engine returned status: {}", response.status()))
-            }
-        }
-        Err(e) => Err(format!("Compute engine unreachable: {}", e)),
-    }
+    Ok(true)
 }
 
-#[command]
+// ==================== HEALTH CHECKS ====================
+
+#[tauri::command]
 pub async fn check_backend_health() -> Result<HealthResponse, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(3))
-        .build()
-        .map_err(|e| e.to_string())?;
+    use reqwest::Client;
+    use std::time::Duration;
     
-    match client.get("http://localhost:8000/api/health/").send().await {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    match client.get("http://localhost:8000/api/health/")
+        .send()
+        .await
+    {
         Ok(response) => {
             if response.status().is_success() {
-                match response.json::<serde_json::Value>().await {
-                    Ok(data) => Ok(HealthResponse {
-                        status: data.get("status").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-                        service: data.get("service").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        timestamp: data.get("timestamp").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        database: data.get("database").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                    }),
+                match response.json::<HealthResponse>().await {
+                    Ok(health) => Ok(health),
                     Err(_) => Ok(HealthResponse {
                         status: "healthy".to_string(),
                         service: Some("novem-backend".to_string()),
-                        timestamp: None,
-                        database: None,
+                        timestamp: Some(chrono::Utc::now().to_rfc3339()),
+                        database: Some("connected".to_string()),
+                        mode: None,
                     }),
                 }
             } else {
@@ -80,180 +96,116 @@ pub async fn check_backend_health() -> Result<HealthResponse, String> {
     }
 }
 
-#[command]
-pub async fn get_system_resources() -> Result<SystemResources, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(5))  // Increase timeout to 5 seconds
-        .build()
-        .map_err(|e| e.to_string())?;
+#[tauri::command]
+pub async fn check_compute_engine_health(state: State<'_, AppState>) -> Result<HealthResponse, String> {
+    use reqwest::Client;
+    use std::time::Duration;
     
-    match client.get("http://127.0.0.1:8001/health/system").send().await {
+    // Get port and drop the lock immediately
+    let port = {
+        let engine = state.python_engine.lock()
+            .map_err(|e| format!("Failed to lock engine: {}", e))?;
+        engine.get_port()
+    }; // Lock is dropped here
+    
+    let client = Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    match client.get(format!("http://127.0.0.1:{}/health", port))
+        .send()
+        .await
+    {
         Ok(response) => {
             if response.status().is_success() {
-                match response.json::<serde_json::Value>().await {
-                    Ok(data) => {
-                        let cpu = data.get("cpu").and_then(|v| v.as_object());
-                        let memory = data.get("memory").and_then(|v| v.as_object());
-                        let disk = data.get("disk").and_then(|v| v.as_object());
-                        
-                        // Extract CPU percent
-                        let cpu_percent = cpu
-                            .and_then(|c| c.get("percent"))
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        
-                        // Extract memory values
-                        let memory_percent = memory
-                            .and_then(|m| m.get("percent"))
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        
-                        let memory_available_gb = memory
-                            .and_then(|m| m.get("available_gb"))
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        
-                        let memory_total_gb = memory
-                            .and_then(|m| m.get("limit_gb"))
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        
-                        // Extract disk values
-                        let disk_available_gb = disk
-                            .and_then(|d| d.get("available_gb"))
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        
-                        let disk_used_gb = disk
-                            .and_then(|d| d.get("used_gb"))
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        
-                        let disk_total_gb = disk_used_gb + disk_available_gb;
-                        
-                        Ok(SystemResources {
-                            cpu_percent,
-                            memory_percent,
-                            memory_available_gb,
-                            memory_total_gb,
-                            disk_available_gb,
-                            disk_total_gb,
-                        })
-                    }
-                    Err(e) => Err(format!("Failed to parse system resources: {}", e)),
+                match response.json::<HealthResponse>().await {
+                    Ok(health) => Ok(health),
+                    Err(_) => Ok(HealthResponse {
+                        status: "healthy".to_string(),
+                        service: Some("novem-compute-engine".to_string()),
+                        timestamp: Some(chrono::Utc::now().to_rfc3339()),
+                        database: Some("duckdb".to_string()),
+                        mode: Some("embedded".to_string()),
+                    }),
                 }
             } else {
-                Err(format!("System resources returned status: {}", response.status()))
+                Err(format!("Compute engine returned status: {}", response.status()))
             }
         }
-        Err(e) => Err(format!("Failed to get system resources: {}", e)),
+        Err(e) => Err(format!("Compute engine unreachable: {}", e)),
     }
 }
 
-// Generic compute engine API call
-#[command]
-pub async fn call_compute_engine(endpoint: String, method: String, data: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+#[tauri::command]
+pub async fn get_system_resources(state: State<'_, AppState>) -> Result<SystemResources, String> {
+    use reqwest::Client;
+    use std::time::Duration;
+    
+    // Get port and drop the lock immediately
+    let port = {
+        let engine = state.python_engine.lock()
+            .map_err(|e| format!("Failed to lock engine: {}", e))?;
+        engine.get_port()
+    }; // Lock is dropped here
+    
+    let client = Client::builder()
+        .timeout(Duration::from_secs(5))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     
-    let url = format!("http://127.0.0.1:8001{}", endpoint);
-    
-    let response = match method.to_uppercase().as_str() {
-        "GET" => client.get(&url).send().await,
-        "POST" => {
-            let builder = client.post(&url);
-            if let Some(payload) = data {
-                builder.json(&payload).send().await
+    match client.get(format!("http://127.0.0.1:{}/health/status", port))
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                let detailed: DetailedStatus = response.json().await
+                    .map_err(|e| format!("Failed to parse response: {}", e))?;
+                
+                detailed.resources.ok_or_else(|| "No resources in response".to_string())
             } else {
-                builder.send().await
-            }
-        }
-        "PUT" => {
-            let builder = client.put(&url);
-            if let Some(payload) = data {
-                builder.json(&payload).send().await
-            } else {
-                builder.send().await
-            }
-        }
-        "DELETE" => client.delete(&url).send().await,
-        "PATCH" => {
-            let builder = client.patch(&url);
-            if let Some(payload) = data {
-                builder.json(&payload).send().await
-            } else {
-                builder.send().await
-            }
-        }
-        _ => return Err(format!("Invalid HTTP method: {}", method)),
-    };
-    
-    match response {
-        Ok(resp) => {
-            let status = resp.status();
-            if status.is_success() {
-                match resp.json::<serde_json::Value>().await {
-                    Ok(json) => Ok(json),
-                    Err(e) => Err(format!("Failed to parse response: {}", e)),
-                }
-            } else {
-                match resp.text().await {
-                    Ok(text) => Err(format!("Request failed with status {}: {}", status, text)),
-                    Err(_) => Err(format!("Request failed with status: {}", status)),
-                }
+                Err(format!("Failed to get resources: {}", response.status()))
             }
         }
         Err(e) => Err(format!("Request failed: {}", e)),
     }
 }
 
-// Simplified health check that returns string
-#[command]
-pub async fn health_check() -> Result<String, String> {
-    match check_compute_engine_health().await {
-        Ok(_) => Ok("Healthy".to_string()),
-        Err(e) => Err(e),
-    }
-}
+// ==================== DATABASE ====================
 
-// ...existing code...
-
-// Add this new command
-#[command]
-pub fn check_compute_engine_path() -> Result<String, String> {
-    let paths_to_check = vec![
-        std::env::current_dir().ok().map(|d| d.join("compute_engine")),
-        std::env::current_dir().ok().and_then(|d| d.parent().map(|p| p.join("compute_engine"))),
-        std::env::current_dir().ok().and_then(|d| {
-            d.parent().and_then(|p| p.parent().map(|pp| pp.join("compute_engine")))
-        }),
-    ];
-
-    let mut result = String::from("Compute Engine Path Search:\n");
+#[tauri::command]
+pub async fn get_workspaces(
+    state: State<'_, AppState>,
+    user_id: i64,
+) -> Result<Vec<Workspace>, String> {
+    let db_guard = state.db.lock()
+        .map_err(|e| format!("Failed to lock database: {}", e))?;
     
-    if let Ok(current) = std::env::current_dir() {
-        result.push_str(&format!("Current Dir: {:?}\n\n", current));
-    }
-
-    for (i, path) in paths_to_check.iter().enumerate() {
-        if let Some(p) = path {
-            let exists = p.exists();
-            let has_main = p.join("main.py").exists();
-            result.push_str(&format!(
-                "{}. {:?}\n   Exists: {} | Has main.py: {}\n",
-                i + 1,
-                p,
-                exists,
-                has_main
-            ));
-        }
-    }
-
-    Ok(result)
+    let db = db_guard.as_ref()
+        .ok_or("Database not initialized")?;
+    
+    db.get_workspaces(user_id)
+        .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn get_projects(
+    state: State<'_, AppState>,
+    workspace_id: i64,
+    user_id: i64,
+) -> Result<Vec<Project>, String> {
+    let db_guard = state.db.lock()
+        .map_err(|e| format!("Failed to lock database: {}", e))?;
+    
+    let db = db_guard.as_ref()
+        .ok_or("Database not initialized")?;
+    
+    db.get_projects(workspace_id, user_id)
+        .map_err(|e| e.to_string())
+}
 
-
-
+#[tauri::command]
+pub async fn health_check() -> Result<String, String> {
+    Ok("NOVEM Desktop is running".to_string())
+}

@@ -372,7 +372,7 @@ async deleteProfilePhoto() {
       
       // Update cached user with new data from response
       if (response.data.user) {
-        console.log('💾 API: Updating localStorage with user:', response.data.user);
+        console.log('API: Updating localStorage with user:', response.data.user);
         localStorage.setItem('user_cache', JSON.stringify(response.data.user));
       }
       

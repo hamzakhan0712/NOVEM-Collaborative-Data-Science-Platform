@@ -68,7 +68,7 @@ const WorkspaceSettingsTab: React.FC<WorkspaceSettingsTabProps> = ({
       ]);
       setLoading(true);
 
-      console.log('💾 Saving workspace settings:', values);
+      console.log('Saving workspace settings:', values);
 
       await backendAPI.client.put(`/workspaces/workspaces/${workspace.id}/`, values);
 

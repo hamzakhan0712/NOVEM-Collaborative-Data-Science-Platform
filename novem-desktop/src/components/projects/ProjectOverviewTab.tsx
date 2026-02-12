@@ -125,25 +125,7 @@ const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({ project }) => {
             )}
           </Card>
 
-          <Card
-            title="Quick Actions"
-            style={{ marginTop: '16px' }}
-          >
-            <Space wrap>
-              <Button type="primary" icon={<DatabaseOutlined />}>
-                Import Dataset
-              </Button>
-              <Button icon={<BarChartOutlined />}>
-                Run Analysis
-              </Button>
-              <Button icon={<RobotOutlined />}>
-                Train Model
-              </Button>
-              <Button icon={<UserOutlined />}>
-                Invite Member
-              </Button>
-            </Space>
-          </Card>
+          
         </Col>
 
         <Col span={8}>

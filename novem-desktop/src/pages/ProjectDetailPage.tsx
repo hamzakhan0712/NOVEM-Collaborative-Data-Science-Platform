@@ -69,23 +69,23 @@ const ProjectDetailPage: React.FC = () => {
       const cachedProject = cached.find(p => p.id === projectId);
       
       if (cachedProject) {
-        console.log('✅ [ProjectDetail] Found cached project');
+        console.log('[ProjectDetail] Found cached project');
         setCurrentProject(cachedProject);
         setLoading(false);
       }
 
       // If online, fetch fresh data in background
       if (!offlineMode) {
-        console.log('🌐 [ProjectDetail] Fetching fresh data from API...');
+        console.log('[ProjectDetail] Fetching fresh data from API...');
         try {
           const project = await backendAPI.getProject(projectId);
-          console.log('✅ [ProjectDetail] Received fresh project data');
+          console.log('[ProjectDetail] Received fresh project data');
           setCurrentProject(project);
           
           // Update cache
           await storageManager.syncProjectState(project);
         } catch (apiError: any) {
-          console.warn('⚠️ [ProjectDetail] API fetch failed:', apiError);
+          console.warn('[ProjectDetail] API fetch failed:', apiError);
           
           // If we don't have cached data, navigate back
           if (!cachedProject) {
@@ -101,7 +101,7 @@ const ProjectDetailPage: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('❌ [ProjectDetail] Load failed:', error);
+      console.error('[ProjectDetail] Load failed:', error);
       navigate('/projects');
     } finally {
       setLoading(false);

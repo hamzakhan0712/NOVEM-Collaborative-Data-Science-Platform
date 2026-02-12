@@ -41,7 +41,7 @@ import { storageManager } from '../services/offline';
 import WorkspaceOverviewTab from '../components/workspaces/WorkspaceOverviewTab';
 import WorkspaceProjectsTab from '../components/workspaces/WorkspaceProjectsTab';
 import WorkspaceMembersTab from '../components/workspaces/WorkspaceMembersTab';
-import WorkspaceActivityTab from '../components/workspaces/WorkspaceActivityTab';
+
 import WorkspaceJoinRequestsBadge from '../components/workspaces/WorkspaceJoinRequestsBadge';
 import WorkspaceSettingsTab from '../components/workspaces/WorkspaceSettingsTab';
 
@@ -80,23 +80,23 @@ const WorkspaceDetailPage: React.FC = () => {
       const cachedWorkspace = cached.find(w => w.id === Number(id));
       
       if (cachedWorkspace) {
-        console.log('✅ [WorkspaceDetail] Found cached workspace');
+        console.log('[WorkspaceDetail] Found cached workspace');
         setWorkspace(cachedWorkspace);
         setLoading(false);
       }
 
       // If online, fetch fresh data in background
       if (!offlineMode) {
-        console.log('🌐 [WorkspaceDetail] Fetching fresh data from API...');
+        console.log('[WorkspaceDetail] Fetching fresh data from API...');
         try {
           const data = await backendAPI.getWorkspace(Number(id));
-          console.log('✅ [WorkspaceDetail] Received fresh workspace data');
+          console.log('[WorkspaceDetail] Received fresh workspace data');
           setWorkspace(data);
           
           // Update cache
           await storageManager.syncWorkspaceState(data);
         } catch (apiError: any) {
-          console.warn('⚠️ [WorkspaceDetail] API fetch failed:', apiError);
+          console.warn('[WorkspaceDetail] API fetch failed:', apiError);
           
           // If we don't have cached data, navigate back
           if (!cachedWorkspace) {
@@ -112,7 +112,7 @@ const WorkspaceDetailPage: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('❌ [WorkspaceDetail] Load failed:', error);
+      console.error('[WorkspaceDetail] Load failed:', error);
       navigate('/workspaces');
     } finally {
       setLoading(false);
@@ -238,12 +238,7 @@ const WorkspaceDetailPage: React.FC = () => {
         />
       ),
     },
-    {
-      key: 'activity',
-      label: 'Activity',
-      icon: <ClockCircleOutlined />,
-      children: <WorkspaceActivityTab />,
-    },
+    
     {
       key: 'settings',
       label: 'Settings',
